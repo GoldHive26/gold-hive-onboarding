@@ -1240,54 +1240,48 @@ function TechConcierge({
           <BadgeCheck className="h-3 w-3" /> Verified Concierge
         </span>
       </div>
+      <div className="mt-12 mb-8 flex items-start gap-4">
+  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-primary/30 bg-zinc-900 text-primary shadow-[0_0_15px_rgba(212,175,55,0.2)]">
+    <HelpCircle className="h-6 w-6" />
+  </div>
+  <div>
+    <h3 className="text-2xl font-bold tracking-tight text-white">Need a Hand with Setup?</h3>
+    <p className="mt-2 text-zinc-400 leading-relaxed">
+      Not a tech person? No problem. Hand it to your developer, or let Gold Hive connect you with a verified partner who's already done it.
+    </p>
+  </div>
+</div>
 
-      <div className="mb-4 flex items-start gap-3">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-primary/40 bg-background text-primary shadow-[0_0_18px_oklch(0.78_0.16_85_/_0.45)]">
-          <HelpCircle className="h-5 w-5" />
-        </div>
-        <div>
-          <h3 className="text-xl font-semibold tracking-tight text-foreground">
-            Need a Hand with Setup?
-          </h3>
-          <p className="mt-1 text-sm text-[#e5e5e5]">
-            Not a tech person? No problem. Hand it to your developer, or let Gold Hive
-            connect you with a verified partner who's already done it.
-          </p>
-        </div>
-      </div>
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+  {/* Developer Support Card */}
+  <a 
+    href={devMailto}
+    className="group flex flex-col gap-3 rounded-xl border border-zinc-700 bg-zinc-800/40 p-6 transition-all hover:border-gold-500/50 no-underline text-left"
+  >
+    <div className="flex items-center gap-2">
+      <Send className="h-5 w-5 text-[#d4af37]" />
+      <span className="text-lg font-bold text-white">Email Instructions to my Dev</span>
+    </div>
+    <p className="text-sm text-zinc-300 leading-relaxed">
+      Opens your mail app with the Technical Backbone link and a brief for your developer.
+    </p>
+  </a>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        {/* Send to Dev */}
-        <a
-          href={devMailto}
-          className="group flex flex-col gap-2 rounded-xl border border-border bg-secondary/30 p-4 transition-all hover:border-primary/50 hover:bg-secondary/60"
-        >
-          <div className="flex items-center gap-2">
-            <Send className="h-4 w-4 text-primary" />
-            <span className="text-sm font-semibold text-foreground">
-              Email Instructions to my Dev
-            </span>
-          </div>
-          <p className="text-xs text-[#e5e5e5]">
-            Opens your mail app with the Gold Hive Technical Backbone link and a brief
-            for your developer.
-          </p>
-        </a>
-
-        {/* Pro Concierge — gold high-contrast */}
-        <a
-          href={proMailto}
-          className="group flex flex-col gap-2 rounded-xl bg-[var(--gradient-gold)] p-4 text-[#1a1a1a] shadow-[var(--shadow-gold)] transition-transform hover:scale-[1.01]"
-        >
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4" />
-            <span className="text-sm font-bold">Request Gold Hive Tech Concierge</span>
-          </div>
-          <p className="text-xs font-medium text-[#1a1a1a]/90">
-            Don't have a developer? We'll personally introduce you to a verified Gold
-            Hive partner.
-          </p>
-        </a>
+  {/* Concierge Support Card - Pure Black Text for Visibility */}
+  <a 
+    href={proMailto}
+    className="group flex flex-col gap-3 rounded-xl bg-[#d4af37] p-6 shadow-[0_10px_30px_-10px_rgba(212,175,55,0.4)] transition-transform hover:scale-[1.02] no-underline text-left"
+  >
+    <div className="flex items-center gap-2 text-black">
+      <Sparkles className="h-5 w-5" />
+      <span className="text-lg font-bold">Request Gold Hive Tech Concierge</span>
+    </div>
+    <p className="text-sm font-medium text-black/80 italic leading-relaxed">
+      Chris will personally introduce you to a verified partner who has already completed this integration.
+    </p>
+  </a>
+</div>
+     
       </div>
 
       <p className="mt-3 text-xs italic text-[#e5e5e5]/80">
