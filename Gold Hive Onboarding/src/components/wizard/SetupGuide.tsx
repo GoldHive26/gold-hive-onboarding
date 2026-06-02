@@ -1282,8 +1282,6 @@ function TechConcierge({
   </a>
 </div>
      
-      </div>
-
       <p className="mt-3 text-xs italic text-[#e5e5e5]/80">
         Note: Chris Turpin will personally introduce you to a verified partner who has
         successfully completed this integration.
