@@ -21,7 +21,13 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { createVendorAccount } from "@/lib/vendor-onboarding.functions";
 import { SetupGuide } from "./SetupGuide";
+import { CodeBlock } from "./CodeBlock";
 import { Scanner, type ScanResult } from "./Scanner";
+
+// Tracking host — stays on the Vercel domain until the Week 4 CNAME swap.
+const TRACKING_BASE = "https://gold-hive-attribution.vercel.app";
+const WEBHOOK_SETUP_DOC =
+  "https://github.com/GoldHive26/gold-hive-attribution/blob/main/docs/vendor-webhook-setup.md";
 import {
   PLATFORM_OPTIONS,
   platformOptionForScan,
@@ -175,6 +181,9 @@ export function OnboardingWizard() {
   };
 
   if (completed) {
+    const scriptTag = vendorId
+      ? `<script src="${TRACKING_BASE}/tracking.js"\n        data-vendor-id="${vendorId}"\n        data-webhook="${TRACKING_BASE}/api/webhook/booking"></script>`
+      : "";
     return (
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
@@ -205,6 +214,26 @@ export function OnboardingWizard() {
             <li className="list-disc">Listed in the Gold Hive partner directory</li>
           </ul>
         </div>
+
+        {scriptTag && (
+          <div className="mx-auto mb-6 max-w-xl text-left">
+            <h3 className="mb-1 text-sm font-semibold tracking-tight">Install your tracking script</h3>
+            <p className="mb-3 text-xs text-muted-foreground">
+              Paste this into your site's <code>&lt;head&gt;</code>. It's unique to your account
+              (your vendor ID is baked in).{" "}
+              <a
+                href={WEBHOOK_SETUP_DOC}
+                target="_blank"
+                rel="noreferrer"
+                className="text-primary hover:underline"
+              >
+                vendor-webhook-setup.md
+              </a>
+            </p>
+            <CodeBlock code={scriptTag} language="html" />
+          </div>
+        )}
+
         <p className="text-xs text-muted-foreground">
           Questions?{" "}
           <a className="text-primary hover:underline" href={`mailto:${SUPPORT_EMAIL}`}>
