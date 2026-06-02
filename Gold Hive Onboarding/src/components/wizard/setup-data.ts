@@ -8,6 +8,14 @@ import {
   Anchor,
   FileText,
   Link as LinkIcon,
+  Newspaper,
+  Layers,
+  Frame,
+  ShoppingBag,
+  Image as ImageIcon,
+  Server,
+  Compass,
+  Ticket,
   type LucideProps,
 } from "lucide-react";
 
@@ -27,6 +35,46 @@ export const PLATFORMS: {
   { value: "GoHighLevel", icon: Zap },
   { value: "Other", icon: MoreHorizontal },
 ];
+
+/**
+ * Platform selector options (Task 2). Decoupled from the typed `Platform` union
+ * that drives the detailed setup guide: `slug` is stored on `vendors.platform`,
+ * `label` is what the vendor sees, and `setup` is the `Platform` key whose guide
+ * to render — new platforms fall back to "Other" so the wizard never renders a
+ * missing guide. The original five keep their own guides; FareHarbor uses its
+ * existing FareHarbor-specific branch in SetupGuide.
+ */
+export interface PlatformOption {
+  label: string;
+  slug: string;
+  icon: ComponentType<LucideProps>;
+  setup: Platform; // which SetupGuide content to show
+}
+
+export const PLATFORM_OPTIONS: PlatformOption[] = [
+  // Existing (own setup guides)
+  { label: "Wix", slug: "wix", icon: Layout, setup: "Wix" },
+  { label: "Squarespace", slug: "squarespace", icon: Box, setup: "Squarespace" },
+  { label: "Odoo", slug: "odoo", icon: Globe, setup: "Odoo" },
+  { label: "GoHighLevel", slug: "gohighlevel", icon: Zap, setup: "GoHighLevel" },
+  // New (Task 2) — generic "Other" guide, own slug
+  { label: "WordPress", slug: "wordpress", icon: Newspaper, setup: "Other" },
+  { label: "Webflow", slug: "webflow", icon: Layers, setup: "Other" },
+  { label: "Framer", slug: "framer", icon: Frame, setup: "Other" },
+  { label: "Shopify", slug: "shopify", icon: ShoppingBag, setup: "Other" },
+  { label: "Showit", slug: "showit", icon: ImageIcon, setup: "Other" },
+  { label: "GoDaddy", slug: "godaddy", icon: Server, setup: "Other" },
+  { label: "FareHarbor", slug: "fareharbor", icon: Anchor, setup: "FareHarbor" },
+  { label: "Peek", slug: "peek", icon: Compass, setup: "Other" },
+  { label: "Rezdy", slug: "rezdy", icon: Ticket, setup: "Other" },
+  // Catch-all
+  { label: "Other", slug: "other", icon: MoreHorizontal, setup: "Other" },
+];
+
+/** Find the option matching a value the scanner returns (a `Platform`). */
+export function platformOptionForScan(scanned: string): PlatformOption | undefined {
+  return PLATFORM_OPTIONS.find((o) => o.label === scanned);
+}
 
 export const BOOKING_TYPES: {
   value: BookingType;

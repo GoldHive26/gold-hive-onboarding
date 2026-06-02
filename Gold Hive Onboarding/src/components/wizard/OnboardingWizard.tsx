@@ -20,7 +20,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { SetupGuide } from "./SetupGuide";
 import { Scanner, type ScanResult } from "./Scanner";
 import {
-  PLATFORMS,
+  PLATFORM_OPTIONS,
+  platformOptionForScan,
   BOOKING_TYPES,
   SUPPORT_NAME,
   SUPPORT_EMAIL,
@@ -39,9 +40,19 @@ export function OnboardingWizard() {
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
+  // `platform` is the SetupGuide content key; `platformSlug` is what we store on
+  // vendors.platform (Task 3); `platformLabel` is what the vendor sees.
   const [platform, setPlatform] = useState<Platform | "">("");
+  const [platformSlug, setPlatformSlug] = useState<string>("");
+  const [platformLabel, setPlatformLabel] = useState<string>("");
   const [bookingType, setBookingType] = useState<BookingType | "">("");
   const [provider, setProvider] = useState<string>("");
+
+  const selectPlatform = (opt: { setup: Platform; slug: string; label: string }) => {
+    setPlatform(opt.setup);
+    setPlatformSlug(opt.slug);
+    setPlatformLabel(opt.label);
+  };
 
   const totalSteps = 3;
   const step = stage === "scan" ? 0 : stage;
@@ -49,7 +60,10 @@ export function OnboardingWizard() {
 
   const handleScanComplete = (r: ScanResult) => {
     setWebsiteUrl(r.url);
-    if (r.platform) setPlatform(r.platform);
+    if (r.platform) {
+      const opt = platformOptionForScan(r.platform);
+      if (opt) selectPlatform(opt);
+    }
     if (r.bookingType) setBookingType(r.bookingType);
     if (r.provider) setProvider(r.provider);
     setStage(1);
@@ -85,7 +99,7 @@ export function OnboardingWizard() {
   };
 
   const handleStep2Next = async () => {
-    if (!platform || !bookingType) {
+    if (!platformSlug || !bookingType) {
       toast.error("Pick a platform and booking method.");
       return;
     }
@@ -95,7 +109,7 @@ export function OnboardingWizard() {
         await supabase
           .from("vendor_onboarding")
           .update({
-            website_platform: platform,
+            website_platform: platformLabel,
             booking_type: bookingType,
             status: "in_progress",
           })
@@ -291,13 +305,13 @@ export function OnboardingWizard() {
                   What is your Website Platform?
                 </Label>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-                  {PLATFORMS.map((p) => {
+                  {PLATFORM_OPTIONS.map((p) => {
                     const Icon = p.icon;
-                    const active = platform === p.value;
+                    const active = platformSlug === p.slug;
                     return (
                       <button
-                        key={p.value}
-                        onClick={() => setPlatform(p.value)}
+                        key={p.slug}
+                        onClick={() => selectPlatform(p)}
                         className={`group flex flex-col items-center gap-2 rounded-xl border p-4 text-center transition-all ${
                           active
                             ? "border-primary bg-primary/10 shadow-[var(--shadow-gold)]"
@@ -307,7 +321,7 @@ export function OnboardingWizard() {
                         <Icon
                           className={`h-6 w-6 transition-colors ${active ? "text-primary" : "text-muted-foreground group-hover:text-primary"}`}
                         />
-                        <span className="text-xs font-medium">{p.value}</span>
+                        <span className="text-xs font-medium">{p.label}</span>
                       </button>
                     );
                   })}
@@ -392,7 +406,7 @@ export function OnboardingWizard() {
                   </h2>
                   <p className="mt-2 text-muted-foreground">
                     Personalized for{" "}
-                    <span className="text-foreground font-medium">{platform || "your platform"}</span>{" "}
+                    <span className="text-foreground font-medium">{platformLabel || "your platform"}</span>{" "}
                     +{" "}
                     <span className="text-foreground font-medium">{bookingType || "your booking method"}</span>.
                     Hand this to your IT team — every code block is copy-ready.
