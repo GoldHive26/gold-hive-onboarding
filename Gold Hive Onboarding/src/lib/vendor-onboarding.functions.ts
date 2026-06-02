@@ -66,9 +66,15 @@ function credentialEmailHtml(name: string, loginLink: string, email: string): st
  * monthly, platform slug). A duplicate email returns a clear "already
  * registered" without inserting a vendor row.
  */
-export const createVendorAccount = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => createVendorInput.parse(input))
-  .handler(async ({ data }): Promise<CreateVendorResult> => {
+export type CreateVendorData = z.infer<typeof createVendorInput>;
+
+/**
+ * Core wizard-completion logic, framework-free so tests can drive it directly
+ * (the createServerFn wrapper below is a thin RPC shell over this).
+ */
+export async function completeVendorOnboarding(
+  data: CreateVendorData,
+): Promise<CreateVendorResult> {
     const supabase = admin();
     const email = data.email.toLowerCase();
 
@@ -152,4 +158,8 @@ export const createVendorAccount = createServerFn({ method: "POST" })
     }
 
     return { ok: true, vendor_id: vendorRow.id as string, user_id: userId, emailed, mappingTriggered };
-  });
+}
+
+export const createVendorAccount = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => createVendorInput.parse(input))
+  .handler(async ({ data }): Promise<CreateVendorResult> => completeVendorOnboarding(data));
