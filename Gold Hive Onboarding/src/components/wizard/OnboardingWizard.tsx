@@ -19,6 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { createVendorAccount } from "@/lib/vendor-onboarding.functions";
 import { SetupGuide } from "./SetupGuide";
 import { Scanner, type ScanResult } from "./Scanner";
 import {
@@ -38,6 +39,7 @@ export function OnboardingWizard() {
   const [recordId, setRecordId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [completed, setCompleted] = useState(false);
+  const [vendorId, setVendorId] = useState<string | null>(null);
 
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [companyName, setCompanyName] = useState("");
@@ -140,17 +142,31 @@ export function OnboardingWizard() {
   const handleComplete = async () => {
     setSubmitting(true);
     try {
+      // Task 3: create the vendor's auth account + vendors row (service role).
+      const res = await createVendorAccount({
+        data: {
+          email: contactEmail.trim(),
+          name: companyName.trim(),
+          platform: platformSlug,
+        },
+      });
+      if (!res.ok) {
+        toast.error(res.message);
+        return; // stay on the guide so they can fix the email / contact support
+      }
+      setVendorId(res.vendor_id);
+
       if (recordId) {
         await supabase
           .from("vendor_onboarding")
           .update({ status: "completed" })
           .eq("id", recordId);
       }
-    } catch {
-      // Silent
+      setCompleted(true);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't finish setup. Please try again.");
     } finally {
       setSubmitting(false);
-      setCompleted(true);
     }
   };
 
