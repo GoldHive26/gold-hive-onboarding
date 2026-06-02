@@ -1,6 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { sendEmail } from "@/lib/email";
+
+const PORTAL_URL = process.env.VENDOR_PORTAL_URL || "https://portal.goldhive.org";
 
 /**
  * Server-side onboarding actions (service role). Uses its own *untyped*
@@ -35,8 +38,23 @@ const createVendorInput = z.object({
 });
 
 export type CreateVendorResult =
-  | { ok: true; vendor_id: string; user_id: string }
+  | { ok: true; vendor_id: string; user_id: string; emailed: boolean }
   | { ok: false; error: "already_registered" | "create_failed" | "vendor_insert_failed"; message: string };
+
+function credentialEmailHtml(name: string, loginLink: string, email: string): string {
+  const safeName = name.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return `<!doctype html>
+<html>
+  <body style="font-family: Arial, Helvetica, sans-serif; color:#1a1a1a;">
+    <p>Hi ${safeName},</p>
+    <p>Your Gold Hive Partner Dashboard is ready. Your account email is <strong>${email}</strong>.</p>
+    <p style="margin:24px 0;">
+      <a href="${loginLink}" style="display:inline-block; padding:14px 28px; background:#C9973A; color:#000; font-weight:bold; text-decoration:none; border-radius:8px;">Log in to your dashboard</a>
+    </p>
+    <p style="font-size:13px; color:#666;">This one-time sign-in link logs you straight in (no password needed) and expires shortly. You can always reach your portal at <a href="${PORTAL_URL}">${PORTAL_URL}</a>.</p>
+  </body>
+</html>`;
+}
 
 /**
  * Task 3 — on wizard completion: create the Supabase auth user (service role,
@@ -89,5 +107,28 @@ export const createVendorAccount = createServerFn({ method: "POST" })
       };
     }
 
-    return { ok: true, vendor_id: vendorRow.id as string, user_id: userId };
+    // Task 4: credential email — a one-time magic link into the portal. Non-fatal
+    // on failure: the vendor exists and the link can be re-sent.
+    let emailed = false;
+    try {
+      const { data: linkData, error: linkErr } = await supabase.auth.admin.generateLink({
+        type: "magiclink",
+        email,
+        options: { redirectTo: `${PORTAL_URL}/dashboard/vendor` },
+      });
+      if (linkErr) throw linkErr;
+      const actionLink = linkData?.properties?.action_link;
+      if (actionLink) {
+        await sendEmail({
+          to: email,
+          subject: "Your Gold Hive Partner Dashboard is ready",
+          html: credentialEmailHtml(data.name, actionLink, email),
+        });
+        emailed = true;
+      }
+    } catch (err) {
+      console.error("Credential email failed", err);
+    }
+
+    return { ok: true, vendor_id: vendorRow.id as string, user_id: userId, emailed };
   });
