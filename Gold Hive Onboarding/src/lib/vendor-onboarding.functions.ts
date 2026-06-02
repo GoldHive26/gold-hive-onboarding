@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { createClient } from "@supabase/supabase-js";
+import { tasks } from "@trigger.dev/sdk/v3";
 import { z } from "zod";
 import { sendEmail } from "@/lib/email";
 
@@ -35,10 +36,13 @@ const createVendorInput = z.object({
   email: z.string().trim().email().max(320),
   name: z.string().trim().min(1).max(200),
   platform: z.string().trim().max(60).optional(),
+  // Task 8: the booking-form HTML / field list pasted in the wizard, forwarded
+  // to the normalize-vendor-form job once the vendor_id exists.
+  raw_form: z.string().trim().max(50000).optional(),
 });
 
 export type CreateVendorResult =
-  | { ok: true; vendor_id: string; user_id: string; emailed: boolean }
+  | { ok: true; vendor_id: string; user_id: string; emailed: boolean; mappingTriggered: boolean }
   | { ok: false; error: "already_registered" | "create_failed" | "vendor_insert_failed"; message: string };
 
 function credentialEmailHtml(name: string, loginLink: string, email: string): string {
@@ -130,5 +134,22 @@ export const createVendorAccount = createServerFn({ method: "POST" })
       console.error("Credential email failed", err);
     }
 
-    return { ok: true, vendor_id: vendorRow.id as string, user_id: userId, emailed };
+    // Task 8: forward the pasted booking form to the normalize-vendor-form job
+    // in the attribution Trigger.dev project (TRIGGER_SECRET_KEY scopes it).
+    // Non-fatal — the vendor exists; mapping can be re-run. Requires the task to
+    // be deployed in that project (deploy-time dependency).
+    let mappingTriggered = false;
+    if (data.raw_form) {
+      try {
+        await tasks.trigger("normalize-vendor-form", {
+          vendor_id: vendorRow.id as string,
+          raw_form_html_or_fields: data.raw_form,
+        });
+        mappingTriggered = true;
+      } catch (err) {
+        console.error("normalize-vendor-form trigger failed", err);
+      }
+    }
+
+    return { ok: true, vendor_id: vendorRow.id as string, user_id: userId, emailed, mappingTriggered };
   });

@@ -154,6 +154,7 @@ export function OnboardingWizard() {
           email: contactEmail.trim(),
           name: companyName.trim(),
           platform: platformSlug,
+          raw_form: bookingFormRaw.trim() || undefined,
         },
       });
       if (!res.ok) {
