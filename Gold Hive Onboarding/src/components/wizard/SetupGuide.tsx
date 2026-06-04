@@ -1439,8 +1439,9 @@ void ChevronDown;
 
 const AUTO_TAGGER_SCRIPT = `<script>
   (function() {
-    const source = new URLSearchParams(window.location.search).get('utm_source') || localStorage.getItem('gh_referral');
-    if (source === 'goldhive') {
+    function ghCookie(n){var m=document.cookie.match('(?:^|; )'+n+'=([^;]*)');return m?m[1]:'';}
+    var isGoldHive = new URLSearchParams(window.location.search).get('utm_source') === 'goldhive' || !!ghCookie('gh_partner_id');
+    if (isGoldHive) {
       document.querySelectorAll('a').forEach(link => {
         if (link.href.includes('leadconnectorhq.com') || link.href.includes('bookingplatform.app') || link.href.includes('vagaro.com')) {
           link.href += (link.href.includes('?') ? '&' : '?') + 'src=goldhive';
