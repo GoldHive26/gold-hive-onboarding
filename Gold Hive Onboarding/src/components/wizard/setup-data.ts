@@ -18,6 +18,7 @@ import {
   Ticket,
   type LucideProps,
 } from "lucide-react";
+import { buildTrackingSnippet } from "@/lib/tracking-snippet";
 
 export type Platform = "Wix" | "Squarespace" | "Odoo" | "GoHighLevel" | "Other" | "FareHarbor";
 export type BookingType =
@@ -90,8 +91,18 @@ export const BOOKING_TYPES: {
   { value: "FareHarbor", icon: Anchor, desc: "FareHarbor reservation platform" },
 ];
 
-// EXACT script from Gold Hive Partner Integration Protocol v1.2 (canonical)
-export const TRACKING_SCRIPT = `<script src="https://raw.githubusercontent.com/GoldHive26/partner-tracking/refs/heads/main/tracking.js"></script>`;
+// Single webhook tracking script. The deployed tracking.js reads its settings
+// from `window.GoldHive.config = { vendorId, webhookEndpoint }` and POSTs to the
+// webhook on page load + form submit (capturing the submitted form's fields).
+// One script, one cookie (gh_partner_id), 30-day window — no hidden fields, no
+// BCC, no raw-GitHub script. SetupGuide shows this EXAMPLE shape with a
+// placeholder id; each vendor's personalized snippet (with their real vendorId)
+// is rendered on the wizard completion screen and emailed to them.
+export const TRACKING_BASE = "https://gold-hive-attribution.vercel.app";
+export const TRACKING_SNIPPET_EXAMPLE = buildTrackingSnippet(
+  "YOUR_VENDOR_ID",
+  TRACKING_BASE,
+);
 
 export const TARGET_UTM_EXAMPLE =
   "https://www.yoursite.com/book-online?utm_source=goldhive&utm_medium=referral&utm_campaign=YourBrand%26goldhive&utm_id=YourBrand_Social";
@@ -99,9 +110,6 @@ export const TARGET_UTM_EXAMPLE =
 export const EXTERNAL_LINK_EXAMPLE =
   "https://your-booking-system.com/reserve/?utm_source=goldhive&utm_medium=referral";
 
-export const HIDDEN_FIELD_HTML = `<input type="hidden" name="referral_source" id="referral_source" value="" />`;
-
-export const BCC_EMAIL = "bookings@goldhive.org";
 export const SUPPORT_NAME = "Christopher Turpin";
 export const SUPPORT_EMAIL = "cturpin@goldhive.org";
 export const PARTNER_ID = "GOLDHIVE";
@@ -124,16 +132,6 @@ export interface PlatformSetup {
   scriptLocation: string;
   scriptSteps: ClickStep[];
   scriptNote?: string;
-
-  /** Where to add the hidden referral_source field. */
-  fieldLocation: string;
-  fieldSteps: ClickStep[];
-  fieldNote?: string;
-
-  /** Conditional BCC rule wiring. */
-  bccLocation: string;
-  bccSteps: ClickStep[];
-  bccNote?: string;
 }
 
 export const PLATFORM_SETUP: Record<Exclude<Platform, "FareHarbor" | "Other">, PlatformSetup> = {
@@ -154,35 +152,6 @@ export const PLATFORM_SETUP: Record<Exclude<Platform, "FareHarbor" | "Other">, P
     ],
     scriptNote:
       "Code Injection requires a Business plan or higher. On Squarespace 7.1 some accounts show this under Settings → Developer Tools instead — same field, same behavior.",
-
-    fieldLocation: "Edit page → Form Block → Edit Form Fields",
-    fieldSteps: [
-      { do: "From the dashboard, click Pages and open the page that contains your booking form." },
-      { do: 'Hover over the form and click "Edit".' },
-      { do: 'Click the form block, then click "Edit Form Fields".' },
-      { do: 'Click "+ Add Field" and choose the "Text" field type.' },
-      {
-        do: 'In the Field Title type "referral_source" exactly (lowercase, underscore).',
-        hint: "Squarespace uses the title to generate the field name — spelling matters.",
-      },
-      {
-        do: 'Open the "Advanced" tab on the field and toggle "Hidden" ON. Leave the default value blank.',
-      },
-      { do: 'Click "Apply", then "Save" on the page.' },
-    ],
-    fieldNote: "Hidden form fields require the Business plan or higher.",
-
-    bccLocation: "Settings → Email & Notifications (or Selling → Customer Notifications)",
-    bccSteps: [
-      { do: 'Squarespace does not support conditional BCC natively. Instead, connect Zapier (free tier works).' },
-      { do: 'In Zapier create a new Zap. Trigger: "Squarespace → New Form Submission".' },
-      { do: 'Add a Filter step: only continue if "referral_source" exactly matches "goldhive".' },
-      {
-        do: `Action: "Email by Zapier → Send Outbound Email" → To: ${BCC_EMAIL}, Subject: "GH Booking — {{form.name}}", Body: include all form fields.`,
-      },
-      { do: "Turn the Zap ON." },
-    ],
-    bccNote: "If you already use a Squarespace Scheduling/Acuity flow, set up the BCC filter inside Acuity's Automations instead.",
   },
 
   // -------------------------------- Wix
@@ -202,28 +171,6 @@ export const PLATFORM_SETUP: Record<Exclude<Platform, "FareHarbor" | "Other">, P
     ],
     scriptNote:
       "Custom Code requires a paid Wix Premium plan and a connected custom domain. Free Wix sites cannot install third-party scripts.",
-
-    fieldLocation: "Wix Editor → your booking form → Add Field → Hidden Field",
-    fieldSteps: [
-      { do: "In the Editor, click the booking/contact form on the page." },
-      { do: 'Click "Edit Form" (or "Manage Fields").' },
-      { do: 'Click "+ Add New Field" and scroll to the "Advanced" section.' },
-      { do: 'Choose "Hidden Field".' },
-      {
-        do: 'Field Name: type "referral_source" exactly. Default Value: leave blank.',
-      },
-      { do: 'Click "Done", then publish the site.' },
-    ],
-
-    bccLocation: "Wix dashboard → Automations",
-    bccSteps: [
-      { do: "From your Wix dashboard click Automations in the left rail." },
-      { do: '"+ New Automation" → choose "Start from Scratch".' },
-      { do: 'Trigger: "Wix Forms → Form is submitted". Select your booking form.' },
-      { do: 'Add Condition: field "referral_source" equals "goldhive".' },
-      { do: `Action: "Send an Email" → BCC field: ${BCC_EMAIL}. Include all form fields in the body.` },
-      { do: 'Click "Activate".' },
-    ],
   },
 
   // -------------------------------- GoHighLevel
@@ -239,25 +186,6 @@ export const PLATFORM_SETUP: Record<Exclude<Platform, "FareHarbor" | "Other">, P
     ],
     scriptNote:
       "If the site uses a GHL Funnel, also paste the script into Funnel → Settings → Tracking Code → Footer.",
-
-    fieldLocation: "Sites → Forms → your booking form → Add Field",
-    fieldSteps: [
-      { do: 'In the sub-account sidebar click "Sites" → "Forms".' },
-      { do: "Open the booking form you want guests to use." },
-      { do: 'From the right-hand "Custom Fields" panel drag a "Single Line" field onto the form.' },
-      { do: 'Field Label: "referral_source". Field Key (auto-generates): make sure it reads "referral_source".' },
-      { do: 'Open the field settings (gear icon) and toggle "Hidden Field" ON.' },
-      { do: "Save the form, then re-embed it on the page if you copied an embed snippet." },
-    ],
-
-    bccLocation: "Automation → Workflows",
-    bccSteps: [
-      { do: "Sub-Account sidebar → Automation → Workflows → + Create Workflow." },
-      { do: 'Trigger: "Form Submitted" → choose your booking form.' },
-      { do: 'Add a Filter on the trigger: "referral_source" — Equals — "goldhive".' },
-      { do: `Add Action "Send Email". To: ${BCC_EMAIL}. Subject: "GH Booking — {{contact.first_name}}". Body: include {{form.*}} fields.` },
-      { do: "Save and publish the workflow (toggle from Draft → Published)." },
-    ],
   },
 
   // -------------------------------- Odoo
@@ -274,30 +202,6 @@ export const PLATFORM_SETUP: Record<Exclude<Platform, "FareHarbor" | "Other">, P
     ],
     scriptNote:
       "On Odoo Online (SaaS) Custom Code is restricted on the lowest plan. If unavailable, paste the script via Website → Pages → Manage Pages → SEO/Properties → Footer Code instead.",
-
-    fieldLocation: "Website Form Builder → your booking form",
-    fieldSteps: [
-      { do: "Open the page with the booking form on the public site." },
-      { do: 'Click "Edit" in the top right.' },
-      { do: "Click the form, then in the right panel click + Field." },
-      { do: 'Set Type to "Custom Field" → "Hidden".' },
-      { do: 'Label: "referral_source". Default value: leave blank.' },
-      { do: 'Click Save (top-right cloud icon).' },
-    ],
-
-    bccLocation: "Settings → Technical → Email → Outgoing Mail Servers + Automated Actions",
-    bccSteps: [
-      { do: "Enable Developer Mode (Settings → Activate the developer mode at bottom)." },
-      { do: "Go to Settings → Technical → Automation → Automated Actions." },
-      { do: 'Create new: Model = "Form Submission" (or your booking model). Trigger = "On Creation".' },
-      {
-        do: 'Add a Filter: referral_source = "goldhive".',
-      },
-      {
-        do: `Action Type: "Send Email". Template: create one with To/BCC = ${BCC_EMAIL}, body containing the form fields.`,
-      },
-      { do: "Save the rule." },
-    ],
   },
 };
 
@@ -313,31 +217,8 @@ export const OTHER_PLATFORM_SETUP: PlatformSetup = {
     },
     { do: "Save the file and deploy / publish the change." },
     {
-      do: "Load any page on your site, open DevTools → Console, type document.cookie, and confirm 'gh_referral' appears (after visiting with ?utm_source=goldhive).",
-    },
-  ],
-
-  fieldLocation: "The HTML of your booking form",
-  fieldSteps: [
-    { do: "Open the HTML file or template that renders your booking / contact form." },
-    {
-      do: 'Inside the <form> tag, paste: <input type="hidden" name="referral_source" id="referral_source" value="" />',
-    },
-    {
-      do: 'Make sure the field name is exactly "referral_source" (lowercase, underscore — not camelCase or hyphen).',
-    },
-    { do: "Save and deploy." },
-  ],
-
-  bccLocation: "Your booking system's email / notification settings",
-  bccSteps: [
-    { do: "Open the admin settings for whatever sends your customer confirmation emails." },
-    {
-      do: `Add a conditional BCC rule: IF the booking's "referral_source" field equals "goldhive", BCC ${BCC_EMAIL}.`,
-    },
-    {
-      do: 'If your platform cannot do conditional BCC, build the same logic in Zapier or Make.com (trigger on submission → filter on referral_source = "goldhive" → email).',
-      hint: "We can help — email cturpin@goldhive.org with your stack and we'll send a tested workflow template.",
+      do: "Load any page on your site with ?gh_partner=YOUR_VENDOR_ID-style test link, open DevTools → Application → Cookies, and confirm the gh_partner_id cookie appears.",
+      hint: "The script only sends data when that cookie is present, so this confirms it's live.",
     },
   ],
 };
@@ -359,9 +240,6 @@ export const FAREHARBOR_SETUP = {
       do: "Commission: enter the rate from your Gold Hive partner agreement (FareHarbor will calculate per-booking automatically).",
     },
     { do: 'Click "Save".' },
-    {
-      do: 'Optional but recommended: under "Email Notifications" add bookings@goldhive.org so we receive the booking copy automatically.',
-    },
   ] as ClickStep[],
 };
 
@@ -383,11 +261,7 @@ export interface Mistake {
 
 export interface PlatformCoach {
   scriptWhere: VisualHint;
-  fieldWhere: VisualHint;
-  bccWhere: VisualHint;
   scriptMistakes: Mistake[];
-  fieldMistakes: Mistake[];
-  bccMistakes: Mistake[];
 }
 
 export const PLATFORM_COACH: Record<Exclude<Platform, "FareHarbor" | "Other">, PlatformCoach> = {
@@ -401,21 +275,6 @@ export const PLATFORM_COACH: Record<Exclude<Platform, "FareHarbor" | "Other">, P
         'After pasting, the "Apply" button is in the bottom-right of the popup.',
       ],
     },
-    fieldWhere: {
-      headline: "On your form, the field menu is on the right.",
-      landmarks: [
-        'Click the form once on the canvas — a floating toolbar appears with "Add New Field".',
-        'A right-side panel slides out with field categories. Scroll to "Advanced" — "Hidden Field" is the last option, marked with an eye-with-slash icon.',
-      ],
-    },
-    bccWhere: {
-      headline: "Automations live in the Wix dashboard, NOT the editor.",
-      landmarks: [
-        'Go to manage.wix.com (the dashboard, not the editor) and pick your site.',
-        'Left rail: scroll until you see "Automations" — lightning-bolt icon, near "Marketing & SEO".',
-        'Top-right: orange "+ New Automation" button.',
-      ],
-    },
     scriptMistakes: [
       {
         q: "Help! I don't see Custom Code anywhere.",
@@ -424,22 +283,6 @@ export const PLATFORM_COACH: Record<Exclude<Platform, "FareHarbor" | "Other">, P
       {
         q: "I pasted the script but nothing happens on the live site.",
         a: 'Wix requires you to PUBLISH after every Custom Code change — the editor preview won\'t fire it. Click the blue "Publish" button top-right of the editor.',
-      },
-    ],
-    fieldMistakes: [
-      {
-        q: "My form doesn't have a Hidden Field option.",
-        a: "Add a normal Single Line Text field, then in its right-panel settings open the 'Advanced' tab and toggle 'Hide on Form' ON. Same end result.",
-      },
-      {
-        q: "The field name has a weird suffix like referral_source_a3f2.",
-        a: "Wix sometimes appends a hash. Click the field, open Settings → Field Name, and manually type 'referral_source' (lowercase, underscore). Save and republish.",
-      },
-    ],
-    bccMistakes: [
-      {
-        q: "Automation runs but no email arrives at bookings@goldhive.org.",
-        a: "Check the Condition step — the value 'goldhive' is case-sensitive and must be exact. Also confirm your form's hidden field is named 'referral_source' (Step 2) — the automation reads from that exact field name.",
       },
     ],
   },
@@ -454,25 +297,6 @@ export const PLATFORM_COACH: Record<Exclude<Platform, "FareHarbor" | "Other">, P
         'The next panel shows "Code Injection" — click it. Two big text areas appear: HEADER and FOOTER. You want FOOTER.',
       ],
     },
-    fieldWhere: {
-      headline: "Form fields are edited from the page editor.",
-      landmarks: [
-        'Pages menu → click the page with your form → "Edit" (top-right).',
-        'Hover the form on the canvas — a pencil icon appears. Click it.',
-        'A modal opens. Click "Edit Form Fields", then "+ Add Field".',
-        'After adding the field, click it and use the "Advanced" tab inside the field settings to mark it Hidden.',
-      ],
-    },
-    bccWhere: {
-      headline: "Squarespace doesn't do conditional BCC natively — use Zapier.",
-      landmarks: [
-        'Go to zapier.com and sign in (free tier works).',
-        '"+ Create Zap" button, top-left.',
-        'Trigger app: "Squarespace". Trigger event: "New Form Submission".',
-        'Then "+ Filter" step → only continue if referral_source = goldhive.',
-        'Action app: "Email by Zapier" → "Send Outbound Email".',
-      ],
-    },
     scriptMistakes: [
       {
         q: "I don't see Code Injection under Advanced.",
@@ -481,18 +305,6 @@ export const PLATFORM_COACH: Record<Exclude<Platform, "FareHarbor" | "Other">, P
       {
         q: "Squarespace 7.1 — there's no Advanced section.",
         a: "On 7.1 the same option lives under Settings → Developer Tools → Code Injection. Same field, same behavior.",
-      },
-    ],
-    fieldMistakes: [
-      {
-        q: "There's no 'Hidden' toggle on my field.",
-        a: "Squarespace hidden fields require the Business plan. On Personal plans, use a regular text field and hide it with custom CSS instead — email cturpin@goldhive.org and we'll send the snippet.",
-      },
-    ],
-    bccMistakes: [
-      {
-        q: "My Zap isn't triggering.",
-        a: "Squarespace's Zapier integration requires you to submit the form once after connecting it — Zapier needs a 'sample' submission to map fields. Submit a test entry, then re-publish the Zap.",
       },
     ],
   },
@@ -507,41 +319,10 @@ export const PLATFORM_COACH: Record<Exclude<Platform, "FareHarbor" | "Other">, P
         'Two large text areas: HEADER and FOOTER (Body End). Use the FOOTER one.',
       ],
     },
-    fieldWhere: {
-      headline: "Custom fields are dragged in from the right panel.",
-      landmarks: [
-        'Sites → Forms → open your booking form.',
-        'Right side: "Custom Fields" panel with a search bar.',
-        'Drag "Single Line" onto the form canvas. Then click the field — its settings (gear icon) open on the right.',
-        'Toggle "Hidden Field" inside the field settings.',
-      ],
-    },
-    bccWhere: {
-      headline: "Workflows are in the Automation menu.",
-      landmarks: [
-        'Left sidebar: "Automation" (lightning icon).',
-        '"Workflows" tab → "+ Create Workflow" → start blank.',
-        'Add Trigger: search "Form Submitted" — pick your booking form.',
-        'On the trigger card itself, click "Filter" and add referral_source = goldhive.',
-        'Then "+ Add Action" → "Send Email".',
-      ],
-    },
     scriptMistakes: [
       {
         q: "I pasted the script but it's not loading.",
         a: "GHL caches aggressively. After saving Tracking Code, also republish each Funnel/Website that uses it (Sites → Funnels → ⋯ → Publish). For pure Funnels, also paste the script in Funnel → Settings → Tracking Code → Footer.",
-      },
-    ],
-    fieldMistakes: [
-      {
-        q: "My field key shows as 'contact.referral_source_xyz' — different from the others.",
-        a: "GHL auto-generates field keys. Open the field's gear icon → Field Key → manually rename to 'referral_source'. Save and re-embed the form on the page.",
-      },
-    ],
-    bccMistakes: [
-      {
-        q: "Workflow is published but emails aren't sending.",
-        a: "Check that the workflow status is 'Published' (not 'Draft') — top-right toggle. Also confirm your sub-account has a verified sending domain under Settings → Email Services.",
       },
     ],
   },
@@ -556,39 +337,10 @@ export const PLATFORM_COACH: Record<Exclude<Platform, "FareHarbor" | "Other">, P
         'Now back on the live site, top-right: "Edit" → "Customize" tab → "Theme Options" → "Custom Code".',
       ],
     },
-    fieldWhere: {
-      headline: "Edit the form on the public page itself.",
-      landmarks: [
-        'Open the live page with the booking form.',
-        'Top-right: "Edit" button.',
-        'Click the form — a right panel appears with form blocks.',
-        '"+ Field" button → choose Type "Custom Field" → then change to "Hidden".',
-      ],
-    },
-    bccWhere: {
-      headline: "Automated Actions only show when Developer Mode is on.",
-      landmarks: [
-        'Settings module → scroll to bottom → "Activate Developer Mode".',
-        'Now Settings → Technical → Automation → "Automated Actions".',
-        '"Create" button (top-left).',
-      ],
-    },
     scriptMistakes: [
       {
         q: "The Custom Code toggle isn't there.",
         a: "On Odoo Online's lowest plan, Custom Code is locked. As a workaround, paste the script via Website → Pages → (your page) → SEO/Properties → Footer Code.",
-      },
-    ],
-    fieldMistakes: [
-      {
-        q: "I can't change the field type to Hidden.",
-        a: "After dragging the field, you must click it ONCE and use the right-panel 'Type' dropdown. If it's grayed out, the form is a system form (e.g. Contact Us) — duplicate it as a Custom Form first.",
-      },
-    ],
-    bccMistakes: [
-      {
-        q: "My Automated Action runs but doesn't send.",
-        a: "Check Settings → Technical → Email → Outgoing Mail Servers. Without a configured outgoing server, Odoo silently drops the email. Use your existing SMTP creds or Sendgrid.",
       },
     ],
   },
@@ -604,37 +356,10 @@ export const OTHER_PLATFORM_COACH: PlatformCoach = {
       'For Shopify: Online Store → Themes → Edit Code → theme.liquid (paste before </body>).',
     ],
   },
-  fieldWhere: {
-    headline: "Open the HTML or template that renders your booking form.",
-    landmarks: [
-      'Look for a <form> tag in your page template.',
-      'Paste the hidden input anywhere INSIDE the <form>...</form> tags.',
-      'If using a form builder (Typeform, Tally, Jotform), look for "Hidden Fields" in the form settings.',
-    ],
-  },
-  bccWhere: {
-    headline: "Open your booking system's notification settings.",
-    landmarks: [
-      'Most booking platforms have Settings → Notifications or Settings → Email Templates.',
-      'If conditional BCC is not supported, build the same logic in Zapier or Make.com.',
-    ],
-  },
   scriptMistakes: [
     {
-      q: "I pasted the script but the gh_referral cookie doesn't appear.",
-      a: "Visit your site with ?utm_source=goldhive in the URL (e.g. yoursite.com/?utm_source=goldhive), then check cookies. The script only sets the cookie when that parameter is present.",
-    },
-  ],
-  fieldMistakes: [
-    {
-      q: "My form builder doesn't support hidden fields.",
-      a: "Add a regular short-text field and hide it with CSS: <style>input[name='referral_source']{display:none}</style>. Email us if you need help wiring this for your specific tool.",
-    },
-  ],
-  bccMistakes: [
-    {
-      q: "I don't know how to set up a conditional BCC.",
-      a: "Use Zapier as a universal bridge: Trigger = your form/booking tool's 'New Submission'. Filter = referral_source equals goldhive. Action = Email by Zapier → BCC bookings@goldhive.org.",
+      q: "I pasted the script but the gh_partner_id cookie doesn't appear.",
+      a: "Visit your site through a Gold Hive partner link (one carrying ?gh_partner=<id>), then check cookies. The script only sets the cookie — and only sends any data — when that partner parameter is present.",
     },
   ],
 };
@@ -665,10 +390,6 @@ export const FAREHARBOR_COACH = {
 // ---------------------------------------------------------------------------
 
 export const GLOSSARY: Record<string, { short: string; long: string }> = {
-  bcc: {
-    short: "Blind Carbon Copy",
-    long: "BCC means Blind Carbon Copy. It sends a silent digital receipt to us automatically so we can pay you commission, without the customer ever seeing our email address on their booking confirmation.",
-  },
   "persistence script": {
     short: "30-day attribution cookie",
     long: "A tiny piece of code that acts like a digital bookmark — when a guest clicks your Gold Hive link, it remembers them for 30 days so we can correctly attribute the booking even if they come back later.",
@@ -677,17 +398,9 @@ export const GLOSSARY: Record<string, { short: string; long: string }> = {
     short: "URL tracking parameters",
     long: "UTM parameters are little tags added to the end of a link (?utm_source=goldhive...) that tell our system 'this visitor came from Gold Hive'. They are invisible to the guest.",
   },
-  "hidden field": {
-    short: "Invisible form input",
-    long: "A form field that exists in the page's code but is not visible to the guest. Our script silently writes 'goldhive' into it so we know the booking came from us.",
-  },
-  "conditional bcc": {
-    short: "Smart BCC rule",
-    long: "A rule that only BCCs us when a SPECIFIC condition is true (in this case: the guest came from Gold Hive). Bookings from other sources are never sent to us — your customer data stays private.",
-  },
   cookie: {
     short: "Browser memory",
-    long: "A small piece of data stored in the guest's browser. We use one named gh_referral that lives for 30 days and remembers they came from a Gold Hive link.",
+    long: "A small piece of data stored in the guest's browser. We use one named gh_partner_id that lives for 30 days and remembers they came from a Gold Hive link. The script only sends anything to us while that cookie is present.",
   },
   devtools: {
     short: "Browser inspector",
@@ -695,15 +408,7 @@ export const GLOSSARY: Record<string, { short: string; long: string }> = {
   },
   affiliate: {
     short: "Tracked partner",
-    long: "FareHarbor's built-in system for tracking which partner sent a booking. Adding Gold Hive as an affiliate is all you need — no scripts, no form fields, no BCC.",
-  },
-  workflow: {
-    short: "Automated rule",
-    long: "An automated 'if this happens, do that' rule inside your platform. We use one to BCC us only when a Gold Hive guest books.",
-  },
-  trigger: {
-    short: "Starting event",
-    long: "The event that kicks off an automated workflow — for us, it's 'a new booking form was submitted'.",
+    long: "FareHarbor's built-in system for tracking which partner sent a booking. Adding Gold Hive as an affiliate is all you need — no scripts, no form fields.",
   },
   "code injection": {
     short: "Custom HTML slot",

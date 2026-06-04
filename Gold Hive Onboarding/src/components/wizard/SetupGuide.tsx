@@ -49,9 +49,7 @@ import {
   OTHER_PLATFORM_COACH,
   FAREHARBOR_SETUP,
   FAREHARBOR_COACH,
-  TRACKING_SCRIPT,
-  HIDDEN_FIELD_HTML,
-  BCC_EMAIL,
+  TRACKING_SNIPPET_EXAMPLE,
   SUPPORT_EMAIL,
   GLOSSARY,
   getProviderSetup,
@@ -181,7 +179,13 @@ export function SetupGuide({
             )
           }
         >
-          <CopyableCode label="Copy this script" code={TRACKING_SCRIPT} language="html" />
+          <CopyableCode label="Example script (shape)" code={TRACKING_SNIPPET_EXAMPLE} language="html" />
+          <InfoBox tone="info">
+            This is the <strong className="text-foreground">shape</strong> of the snippet.
+            Your <strong className="text-foreground">personalized</strong> version — with
+            your real vendor ID already filled in — appears on the final screen and is
+            emailed to you. Paste <em>that</em> one (both lines) into the location below.
+          </InfoBox>
           <LocationBar location={setup.scriptLocation} platformLabel={platformLabel} />
           <CheckableSteps
             storageKey={`script-${platform}`}
@@ -189,14 +193,14 @@ export function SetupGuide({
             note={setup.scriptNote}
             where={coach.scriptWhere}
             platformLabel={platformLabel}
-            phaseTitle="Phase 1 — Install the Gold Hive persistence (tracking) script"
-            aiGoal={`Paste the Gold Hive <script> tag into the global footer/body-end of a ${platformLabel} site so it loads on every page. The exact location is: ${setup.scriptLocation}.`}
+            phaseTitle="Phase 1 — Install the Gold Hive tracking script"
+            aiGoal={`Paste the Gold Hive tracking snippet (a window.GoldHive.config <script> block followed by a <script src> tag) into the global footer/body-end of a ${platformLabel} site so it loads on every page. The exact location is: ${setup.scriptLocation}.`}
           />
           <SuccessCheck>
-            Open your live site, then in <Term k="devtools">DevTools</Term> → Application
-            → Cookies look for{" "}
+            Open your live site through a Gold Hive partner link, then in{" "}
+            <Term k="devtools">DevTools</Term> → Application → Cookies look for{" "}
             <code className="rounded bg-secondary/60 px-1 py-0.5 font-mono text-xs">
-              gh_referral
+              gh_partner_id
             </code>
             . If it's there, the script is firing.
           </SuccessCheck>
@@ -210,7 +214,7 @@ export function SetupGuide({
           title={
             isExternalLink
               ? "Replace your Book Now link with the tagged URL"
-              : "Add the hidden referral_source field to your form"
+              : "That's it — your form is captured automatically"
           }
           subtitle={
             isExternalLink ? (
@@ -224,45 +228,30 @@ export function SetupGuide({
               </>
             ) : (
               <>
-                This <Term k="hidden field">hidden field</Term> is what our script
-                populates with 'goldhive' when a referred guest submits your form. The
-                BCC in Phase 3 only fires when this field equals 'goldhive' — direct
-                bookings stay invisible to Gold Hive.
+                No hidden fields, no email rules. On a referred submit, the Phase&nbsp;1
+                script reads your form's own fields and sends them to Gold Hive —{" "}
+                <strong className="text-foreground">only</strong> when the visitor carries
+                the goldhive cookie. Direct bookings send nothing.
               </>
             )
           }
         >
           {isFormPath && (
             <>
-              <CopyableCode
-                label="Hidden field HTML (for reference)"
-                code={HIDDEN_FIELD_HTML}
-                language="html"
-              />
+              <InfoBox tone="info">
+                Nothing to wire here. The tracking script you installed in Phase&nbsp;1
+                captures your booking form on submit (guest name, date, amount, etc.) and
+                posts it to Gold Hive — but only for visitors who arrived through a Gold
+                Hive partner link. Payment fields (card number, CVV) are never sent.
+              </InfoBox>
               <SpecTable
                 rows={[
-                  ["Field Name / ID", "referral_source", true],
-                  ["Field Type", "Hidden", false],
-                  ["Default Value", "(leave blank)", false],
-                  [
-                    "Auto-populated by",
-                    "tracking.js → sets to 'goldhive' on referred visits",
-                    false,
-                  ],
-                  ["Required", "Yes — without this, attribution silently fails", false],
+                  ["Captured on", "Form submit (referred visitors only)", false],
+                  ["Sent to", "Gold Hive webhook (/api/webhook/booking)", true],
+                  ["Excluded", "Card / CVV / payment inputs — never transmitted", false],
+                  ["Required setup", "None beyond the Phase 1 script", false],
                 ]}
               />
-              <LocationBar location={setup.fieldLocation} platformLabel={platformLabel} />
-              <CheckableSteps
-                storageKey={`field-${platform}`}
-                steps={setup.fieldSteps}
-                note={setup.fieldNote}
-                where={coach.fieldWhere}
-                platformLabel={platformLabel}
-                phaseTitle="Phase 2 — Add the hidden referral_source field to the booking form"
-                aiGoal={`Add a hidden form field named exactly 'referral_source' (lowercase, underscore) to the booking form on a ${platformLabel} site. The exact location is: ${setup.fieldLocation}.`}
-              />
-              <CommonMistakes mistakes={coach.fieldMistakes} />
             </>
           )}
 
@@ -346,7 +335,6 @@ export function SetupGuide({
                         hint: "If the parameters are stripped, your booking provider may need a redirect rule — email us and we'll help.",
                       },
                     ]}
-                    where={coach.fieldWhere}
                     platformLabel={platformLabel}
                     phaseTitle="Phase 2 — Replace every Book Now link with the UTM-tagged URL"
                     aiGoal={`Find every 'Book Now' / 'Reserve' button on a ${platformLabel} site and replace its destination URL with this exact tagged URL: ${utmLink}. The tag is the only signal Gold Hive will ever see, so any untagged button means a missed commission.`}
@@ -366,7 +354,6 @@ export function SetupGuide({
                       ],
                     ]}
                   />
-                  <CommonMistakes mistakes={coach.fieldMistakes} />
                 </>
               )}
             </>
@@ -378,41 +365,6 @@ export function SetupGuide({
               attribution wiring.
             </InfoBox>
           )}
-        </PhaseCard>
-
-        {/* PHASE 3 — BCC AUDIT RULE */}
-        <PhaseCard
-          number={3}
-          icon={Mail}
-          title="Set up the conditional BCC rule"
-          subtitle={
-            <>
-              The 'safety net' — a <Term k="conditional bcc">conditional BCC</Term> that
-              guarantees Gold Hive only ever sees data for guests we actually referred.
-              Required for automated commission payouts.
-            </>
-          }
-        >
-          <SpecTable
-            rows={[
-              ["BCC Address", BCC_EMAIL, true],
-              ["Trigger", "Customer booking confirmation email", false],
-              ["Condition", "referral_source equals 'goldhive'", true],
-              ["Behavior", "BCC fires ONLY on Gold Hive referrals", false],
-            ]}
-          />
-          <LocationBar location={setup.bccLocation} platformLabel={platformLabel} />
-          <CheckableSteps
-            storageKey={`bcc-${platform}`}
-            steps={setup.bccSteps}
-            note={setup.bccNote}
-            where={coach.bccWhere}
-            platformLabel={platformLabel}
-            phaseTitle="Phase 3 — Set up the conditional BCC rule"
-            aiGoal={`Create an email automation rule on ${platformLabel} that BCCs ${BCC_EMAIL} on the booking confirmation email — but ONLY when the form's referral_source field equals 'goldhive'. The exact location is: ${setup.bccLocation}.`}
-          />
-          <PrivacyCallout />
-          <CommonMistakes mistakes={coach.bccMistakes} />
         </PhaseCard>
 
         <TechConcierge websiteUrl={websiteUrl} companyName={companyName} />
@@ -1086,21 +1038,6 @@ function KeyValueCallout({ label, value }: { label: string; value: string }) {
   );
 }
 
-function PrivacyCallout() {
-  return (
-    <div className="flex gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
-      <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-      <div>
-        <span className="font-semibold text-primary">Privacy guarantee: </span>
-        <span className="text-foreground/90">
-          Our audit bot only processes emails that match this exact rule. All other
-          customer data stays in your system and is never sent to Gold Hive.
-        </span>
-      </div>
-    </div>
-  );
-}
-
 function TestLinkButton({ url }: { url: string }) {
   const isPlaceholder = url.includes("[YourSiteURL]");
   return (
@@ -1114,7 +1051,7 @@ function TestLinkButton({ url }: { url: string }) {
           <div className="text-sm text-foreground/90">
             Open your tagged URL in a new tab to confirm the script fires and the
             <code className="mx-1 rounded bg-secondary/60 px-1 py-0.5 font-mono text-xs text-primary">
-              gh_referral
+              gh_partner_id
             </code>
             cookie sets.
           </div>
@@ -1143,10 +1080,10 @@ function TestLinkButton({ url }: { url: string }) {
 
 function TechnicalSpecsTable() {
   const rows: { icon: typeof Cookie; label: string; value: string }[] = [
-    { icon: Cookie, label: "Tracking", value: "First-party Cookie (gh_referral)" },
+    { icon: Cookie, label: "Tracking", value: "First-party Cookie (gh_partner_id)" },
     { icon: Clock, label: "Duration", value: "30 Days" },
-    { icon: MousePointerClick, label: "Method", value: "DOM Mutation / URL Parameter Listener" },
-    { icon: Filter, label: "Privacy", value: "Selective Attribution (Filtered by utm_source)" },
+    { icon: MousePointerClick, label: "Method", value: "Webhook POST on page load + form submit" },
+    { icon: Filter, label: "Privacy", value: "Sends nothing unless gh_partner_id is present" },
   ];
   return (
     <div className="rounded-2xl border border-primary/30 bg-background/60 p-5 print:break-inside-avoid">
@@ -1353,8 +1290,8 @@ function FinishCard() {
         <li className="flex gap-3">
           <span className="font-mono text-xs text-primary">1.</span>
           <span>
-            Gold Hive runs a verification booking to confirm the script fires and the
-            BCC arrives at <span className="font-mono text-foreground">{BCC_EMAIL}</span>.
+            Gold Hive runs a verification booking through a partner link to confirm the
+            script fires and the booking reaches our webhook.
           </span>
         </li>
         <li className="flex gap-3">
@@ -1406,13 +1343,19 @@ function PrivateStatusBadge() {
             Your data is protected.
           </span>
         </div>
+        {/* TODO(chris-privacy-framing): confirm the exact vendor-facing wording for
+            the webhook model before launch. This is now literally true on the wire —
+            tracking.js sends nothing unless the gh_partner_id cookie is present — but
+            the phrasing should be settled with Chris (replaces the old BCC "audit bot"
+            framing). */}
         <p className="mt-1 text-[0.92rem] leading-relaxed text-foreground/85">
-          This integration is filtered and will only report bookings tagged with the{" "}
+          The script only sends data for visitors who arrive through a Gold Hive partner
+          link (carrying the{" "}
           <code className="rounded bg-secondary/60 px-1 py-0.5 font-mono text-xs text-primary">
             goldhive
           </code>{" "}
-          source. <strong className="text-foreground">100% of your direct &amp; organic
-          traffic remains invisible</strong> to Gold Hive.
+          cookie). <strong className="text-foreground">Your direct &amp; organic traffic
+          is never transmitted</strong> to Gold Hive — nothing leaves the page.
         </p>
       </div>
     </div>
@@ -1437,11 +1380,11 @@ function HowAttributionWorks({
           body: (
             <>
               The script we install <strong className="text-foreground">stays dormant</strong>{" "}
-              until it sees a visitor arrive via a Gold Hive link. Only then does it tag
-              their session. The <Term k="conditional bcc">conditional BCC</Term> in Phase
-              3 <strong className="text-foreground">only fires</strong> when the form
-              actually carries the goldhive tag — every other booking stays in your inbox
-              alone.
+              until it sees a visitor arrive via a Gold Hive link. Only then does it set the
+              partner cookie. When that visitor submits your booking form, the script reads
+              the form's fields and posts them to Gold Hive —{" "}
+              <strong className="text-foreground">only when the goldhive cookie is present</strong>.
+              Every other booking stays in your system alone; nothing is transmitted.
             </>
           ),
         }
@@ -1635,12 +1578,12 @@ function AttributionSimulator() {
                   transition={{ delay: 0.7, type: "spring" }}
                   className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--gradient-gold)] text-primary-foreground shadow-[var(--shadow-gold)]"
                 >
-                  <Mail className="h-5 w-5" />
+                  <Zap className="h-5 w-5" />
                 </motion.div>
               </div>
               <div className="text-center">
                 <div className="font-mono text-[0.78rem] text-foreground/70">
-                  bookings@goldhive.org
+                  Gold Hive webhook
                 </div>
                 <motion.div
                   initial={{ scale: 0 }}
