@@ -22,6 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { createVendorAccount } from "@/lib/vendor-onboarding.functions";
 import { SetupGuide } from "./SetupGuide";
 import { CodeBlock } from "./CodeBlock";
+import { buildTrackingSnippet } from "@/lib/tracking-snippet";
 import { Scanner, type ScanResult } from "./Scanner";
 
 // Tracking host — stays on the Vercel domain until the Week 4 CNAME swap.
@@ -182,9 +183,7 @@ export function OnboardingWizard() {
   };
 
   if (completed) {
-    const scriptTag = vendorId
-      ? `<script src="${TRACKING_BASE}/tracking.js"\n        data-vendor-id="${vendorId}"\n        data-webhook="${TRACKING_BASE}/api/webhook/booking"></script>`
-      : "";
+    const scriptTag = vendorId ? buildTrackingSnippet(vendorId, TRACKING_BASE) : "";
     return (
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
