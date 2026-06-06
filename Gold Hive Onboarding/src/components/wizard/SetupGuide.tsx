@@ -87,7 +87,7 @@ export function SetupGuide({
   const isExternalLink = bookingType === "External Booking Link";
   const isFormPath =
     bookingType === "Form on my website" &&
-    ["Wix", "Squarespace", "Odoo", "GoHighLevel", "Other"].includes(platform);
+    ["Wix", "Squarespace", "Odoo", "GoHighLevel", "Other", "Custom"].includes(platform);
 
   const setup =
     platform && platform !== "Other" && platform !== "FareHarbor"

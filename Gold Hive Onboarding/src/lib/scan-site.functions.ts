@@ -391,7 +391,13 @@ export const scanSite = createServerFn({ method: "POST" })
       pathLabel = "Path A — Native Form";
       recommendations.push("Inject the tracking script + add a hidden referral_source field to your booking form.");
     }
-    if (!merged.platform) recommendations.push("We couldn't fingerprint your CMS — pick it manually on the next step.");
+    if (!merged.platform) {
+      recommendations.push(
+        !merged.bookingType
+          ? 'No CMS or booking provider detected — looks like a custom-coded site. Pick "Custom / Coded Website" on the next step for developer install instructions.'
+          : "We couldn't fingerprint your CMS — pick it manually on the next step.",
+      );
+    }
     if (!merged.bookingType) {
       recommendations.push(
         pagesScanned.length > 1

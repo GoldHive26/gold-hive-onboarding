@@ -16,11 +16,19 @@ import {
   Server,
   Compass,
   Ticket,
+  Code2,
   type LucideProps,
 } from "lucide-react";
 import { buildTrackingSnippet } from "@/lib/tracking-snippet";
 
-export type Platform = "Wix" | "Squarespace" | "Odoo" | "GoHighLevel" | "Other" | "FareHarbor";
+export type Platform =
+  | "Wix"
+  | "Squarespace"
+  | "Odoo"
+  | "GoHighLevel"
+  | "Other"
+  | "FareHarbor"
+  | "Custom";
 export type BookingType =
   | "Form on my website"
   | "External Booking Link"
@@ -68,6 +76,8 @@ export const PLATFORM_OPTIONS: PlatformOption[] = [
   { label: "FareHarbor", slug: "fareharbor", icon: Anchor, setup: "FareHarbor" },
   { label: "Peek", slug: "peek", icon: Compass, setup: "Other" },
   { label: "Rezdy", slug: "rezdy", icon: Ticket, setup: "Other" },
+  // Hand-coded / framework sites — developer-targeted guide (own slug + guide)
+  { label: "Custom / Coded Website", slug: "custom", icon: Code2, setup: "Custom" },
   // Catch-all
   { label: "Other", slug: "other", icon: MoreHorizontal, setup: "Other" },
 ];
@@ -202,6 +212,35 @@ export const PLATFORM_SETUP: Record<Exclude<Platform, "FareHarbor" | "Other">, P
     ],
     scriptNote:
       "On Odoo Online (SaaS) Custom Code is restricted on the lowest plan. If unavailable, paste the script via Website → Pages → Manage Pages → SEO/Properties → Footer Code instead.",
+  },
+
+  // -------------------------------- Custom / Coded Website (developer)
+  Custom: {
+    scriptLocation:
+      "Your app's GLOBAL HTML shell — the <head> (or just before </body>) of the layout that wraps every page: index.html, app/layout.tsx, src/layouts/Base.astro, etc.",
+    scriptSteps: [
+      {
+        do: "Open your project in your IDE (VS Code, Cursor, …) — you'll paste the snippet into the one file that renders on every page.",
+        hint: "Using an AI editor like Cursor? Paste the personalized snippet into chat and ask it to add both <script> tags to your global layout's <head> — it knows your stack.",
+      },
+      {
+        do: "Find the GLOBAL HTML shell — the single template/component that wraps every page (not an individual page or route).",
+        hint: "Plain HTML → index.html. Next.js → app/layout.tsx (App Router) or pages/_document.tsx (Pages Router). Astro → src/layouts/*.astro (your base layout). Vite/React → index.html.",
+      },
+      {
+        do: "Paste BOTH <script> tags into <head> (or immediately before </body>). The inline window.GoldHive.config block MUST come FIRST, then the <script src=\"…/tracking.js\"> line.",
+        hint: "Order is load-bearing: if tracking.js runs before the config block, window.GoldHive.config is null and nothing is ever sent.",
+      },
+      {
+        do: "Double-check it lives in the GLOBAL layout/shell, not a single page component — it must load on every page so the gh_partner_id cookie persists across the whole site.",
+      },
+      {
+        do: "Build / deploy, then load any page through a Gold Hive partner link (?gh_partner=…) and confirm the gh_partner_id cookie appears in DevTools → Application → Cookies.",
+        hint: "In the console, window.GoldHive.config should return your vendorId — that confirms the config block loaded before tracking.js.",
+      },
+    ],
+    scriptNote:
+      "Two rules for coded sites: (1) the config <script> must come BEFORE the tracking.js <script src> (no null config), and (2) it must live in your GLOBAL layout/shell so it loads on every page — not in a single page component.",
   },
 };
 
@@ -341,6 +380,32 @@ export const PLATFORM_COACH: Record<Exclude<Platform, "FareHarbor" | "Other">, P
       {
         q: "The Custom Code toggle isn't there.",
         a: "On Odoo Online's lowest plan, Custom Code is locked. As a workaround, paste the script via Website → Pages → (your page) → SEO/Properties → Footer Code.",
+      },
+    ],
+  },
+
+  Custom: {
+    scriptWhere: {
+      headline: "Open your project in your IDE / Cursor and find the file that wraps every page.",
+      landmarks: [
+        "Plain HTML site: index.html (and any other top-level *.html) — paste inside <head> or just before </body>.",
+        "Next.js: app/layout.tsx (App Router) — render the tags inside <head>; or pages/_document.tsx (Pages Router) — inside <Head> / before </body>.",
+        "Astro: your base layout in src/layouts/*.astro (e.g. Base.astro / Layout.astro) — inside the <head> that every page extends.",
+        "Vite / React (CRA-style): index.html at the project root, inside <head> — it's the single shell that hosts the whole SPA.",
+      ],
+    },
+    scriptMistakes: [
+      {
+        q: "My site is a SPA / uses client-side routing (React Router, Next.js, Astro islands). Do I need to re-fire the script on every route change?",
+        a: "No. The snippet loads once when the shell loads and sets the 30-day gh_partner_id cookie on the first referred visit. tracking.js reads that cookie on form submit, so client-side route changes need no extra wiring — just make sure the snippet is in the global shell, not a single route component.",
+      },
+      {
+        q: "The console shows window.GoldHive.config is null / undefined.",
+        a: "The two <script> tags are in the wrong order. The inline block that sets window.GoldHive.config MUST appear BEFORE the <script src=\"…/tracking.js\"> line. Put the config block first, then the src tag — both in the same global <head>/footer.",
+      },
+      {
+        q: "How do I verify it actually loaded?",
+        a: "Open DevTools → Console and type window.GoldHive.config — you should see your vendorId and webhookEndpoint. Then load a page with ?gh_partner=test-partner and check DevTools → Application → Cookies for gh_partner_id. If both are present, you're live.",
       },
     ],
   },
