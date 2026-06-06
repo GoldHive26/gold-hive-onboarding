@@ -102,18 +102,22 @@ export function Scanner({ onComplete, onSkip }: Props) {
         <div className="mx-auto mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-[var(--gradient-gold)] shadow-[var(--shadow-gold)]">
           <Radar className="h-6 w-6 text-primary-foreground" />
         </div>
-        <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Smart Stack Scanner</h2>
+        <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Enter your website</h2>
         <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-          Enter your website (or a specific booking page) — we'll fetch it and detect your CMS,
-          booking provider, and the right integration path.
+          Paste your website address and we'll check how it's built, then tailor your setup
+          instructions. No website to scan? Skip and pick your platform yourself.
         </p>
       </div>
 
       <div className="mt-7">
+        <label htmlFor="site-url" className="mb-2 block text-left text-sm font-medium">
+          Website URL
+        </label>
         <div className="flex flex-col gap-2 sm:flex-row">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
+              id="site-url"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && !scanning && !result && startScan()}
@@ -277,7 +281,7 @@ export function Scanner({ onComplete, onSkip }: Props) {
                 onClick={onSkip}
                 className="text-xs text-muted-foreground underline-offset-4 hover:text-primary hover:underline"
               >
-                Don't have a URL? Skip and select manually →
+                Skip and choose my platform manually →
               </button>
             </motion.div>
           )}

@@ -9,8 +9,10 @@
  * Run:  bun run tests/wizard-e2e.ts      (from the app dir; Bun loads .env)
  *
  * Covers: auth user created, vendors row created (matching user_id + 10% /
- * monthly / platform slug), credential-email path, normalize-vendor-form
- * trigger enqueued, and the vendor-specific tracking <script> tag.
+ * monthly / platform slug), credential-email path, and the vendor-specific
+ * tracking <script> snippet. Field mapping is NO LONGER collected at onboarding
+ * (vendors never paste their form) — the webhook auto-learns it from the first
+ * real booking — so this asserts no mapping is triggered here.
  *
  * NOT covered here (manual, cross-repo): clicking the magic link logs the
  * vendor into the partner-hub portal and shows an empty dashboard — verify by
@@ -20,6 +22,7 @@
  */
 import { createClient } from "@supabase/supabase-js";
 import { completeVendorOnboarding } from "../src/lib/vendor-onboarding.functions";
+import { buildTrackingSnippet } from "../src/lib/tracking-snippet";
 
 const TRACKING_BASE = "https://gold-hive-attribution.vercel.app";
 const svc = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
@@ -32,16 +35,14 @@ function assert(cond: unknown, label: string) {
 }
 
 const email = `wizard-e2e-${Date.now()}@example.com`;
-const sampleForm = `<form>\n  <input name="full_name" />\n  <input name="email" />\n  <input name="tour_date" />\n  <input name="total_paid" />\n</form>`;
 
 console.log(`\n— Onboarding wizard e2e (fresh email: ${email}) —\n`);
 
-// 1. Complete the wizard (fresh email + platform + pasted form).
+// 1. Complete the wizard (fresh email + platform; no form paste — vendors never code).
 const res = await completeVendorOnboarding({
   email,
   name: "E2E Tour Co",
   platform: "shopify",
-  raw_form: sampleForm,
 });
 assert(res.ok, "wizard completion succeeds (createVendorAccount ok)");
 if (!res.ok) {
@@ -65,16 +66,22 @@ assert(Number(vendor?.commission_percent) === 10, "commission_percent default 10
 assert(vendor?.pay_cycle === "monthly", "pay_cycle default monthly");
 assert(vendor?.platform === "shopify", "platform slug stored (shopify)");
 
-// 4. normalize-vendor-form trigger enqueued.
-assert(res.mappingTriggered === true, "normalize-vendor-form trigger enqueued");
+// 4. No field mapping at onboarding — the webhook auto-learns it from the
+//    vendor's first real booking (vendors never paste their form).
+assert(!res.mappingTriggered, "field mapping NOT triggered at onboarding (auto-learned on first booking)");
 
 // 5. Credential-email path ran (boolean present; delivery proven in Task 4).
 assert(typeof res.emailed === "boolean", "credential-email path executed");
 
-// 6. Vendor-specific tracking <script> tag carries the real UUID.
-const scriptTag = `<script src="${TRACKING_BASE}/tracking.js"\n        data-vendor-id="${res.vendor_id}"\n        data-webhook="${TRACKING_BASE}/api/webhook/booking"></script>`;
-assert(scriptTag.includes(res.vendor_id), "script tag contains the new vendor UUID");
-assert(scriptTag.includes(`${TRACKING_BASE}/tracking.js`) && scriptTag.includes("/api/webhook/booking"), "script tag has correct src + webhook");
+// 6. Vendor-specific tracking snippet carries the real UUID + config-first shape.
+const scriptTag = buildTrackingSnippet(res.vendor_id, TRACKING_BASE);
+assert(scriptTag.includes(res.vendor_id), "snippet contains the new vendor UUID");
+assert(
+  scriptTag.includes("window.GoldHive") &&
+    scriptTag.includes(`${TRACKING_BASE}/tracking.js`) &&
+    scriptTag.includes("/api/webhook/booking"),
+  "snippet has config + correct src + webhook",
+);
 
 // 7. Duplicate submission with the same email is rejected (no double-insert).
 const dup = await completeVendorOnboarding({ email, name: "E2E Tour Co", platform: "shopify" });

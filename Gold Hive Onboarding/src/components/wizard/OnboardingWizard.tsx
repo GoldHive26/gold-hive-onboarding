@@ -11,11 +11,9 @@ import {
   LayoutDashboard,
   Download,
   Printer,
-  FileCode,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -39,7 +37,7 @@ import {
   type BookingType,
 } from "./setup-data";
 
-type Stage = "scan" | 1 | 2 | "form" | 3;
+type Stage = "scan" | 1 | 2 | 3;
 
 export function OnboardingWizard() {
   const [stage, setStage] = useState<Stage>("scan");
@@ -58,9 +56,6 @@ export function OnboardingWizard() {
   const [platformLabel, setPlatformLabel] = useState<string>("");
   const [bookingType, setBookingType] = useState<BookingType | "">("");
   const [provider, setProvider] = useState<string>("");
-  // Task 8: raw booking-form HTML (or field names, one per line) the vendor
-  // pastes; forwarded to the normalize-vendor-form job at completion.
-  const [bookingFormRaw, setBookingFormRaw] = useState<string>("");
 
   const selectPlatform = (opt: { setup: Platform; slug: string; label: string }) => {
     setPlatform(opt.setup);
@@ -68,8 +63,8 @@ export function OnboardingWizard() {
     setPlatformLabel(opt.label);
   };
 
-  const totalSteps = 4;
-  const STEP_OF: Record<Exclude<Stage, "scan">, number> = { 1: 1, 2: 2, form: 3, 3: 4 };
+  const totalSteps = 3;
+  const STEP_OF: Record<Exclude<Stage, "scan">, number> = { 1: 1, 2: 2, 3: 3 };
   const step = stage === "scan" ? 0 : STEP_OF[stage];
   const progress = stage === "scan" ? 0 : (step / totalSteps) * 100;
 
@@ -134,16 +129,8 @@ export function OnboardingWizard() {
       // Silent
     } finally {
       setSubmitting(false);
-      setStage("form");
+      setStage(3);
     }
-  };
-
-  const handleFormNext = () => {
-    if (!bookingFormRaw.trim()) {
-      toast.error("Paste your booking form HTML, or list your field names one per line.");
-      return;
-    }
-    setStage(3);
   };
 
   const handleComplete = async () => {
@@ -155,7 +142,6 @@ export function OnboardingWizard() {
           email: contactEmail.trim(),
           name: companyName.trim(),
           platform: platformSlug,
-          raw_form: bookingFormRaw.trim() || undefined,
         },
       });
       if (!res.ok) {
@@ -257,13 +243,7 @@ export function OnboardingWizard() {
             Step {step} of {totalSteps}
           </span>
           <span className="text-xs text-muted-foreground">
-            {step === 1
-              ? "Identity"
-              : step === 2
-                ? "Tech Stack"
-                : step === 3
-                  ? "Booking Form"
-                  : "Setup Guide"}
+            {step === 1 ? "Identity" : step === 2 ? "Tech Stack" : "Setup Guide"}
           </span>
         </div>
         <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
@@ -456,48 +436,6 @@ export function OnboardingWizard() {
             </motion.div>
           )}
 
-          {stage === "form" && (
-            <motion.div
-              key="stepForm"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="space-y-6"
-            >
-              <div>
-                <h2 className="text-3xl font-semibold tracking-tight">Paste Your Booking Form</h2>
-                <p className="mt-2 text-muted-foreground">
-                  Paste the HTML of your existing booking or inquiry form. No form yet? List your
-                  field names instead — one per line (e.g. <code>full name</code>, <code>email</code>,
-                  <code>tour date</code>). We use this to map your fields to Gold Hive automatically.
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="booking-form" className="flex items-center gap-2 text-sm">
-                  <FileCode className="h-4 w-4 text-primary" /> Booking form HTML or field list
-                </Label>
-                <Textarea
-                  id="booking-form"
-                  value={bookingFormRaw}
-                  onChange={(e) => setBookingFormRaw(e.target.value)}
-                  placeholder={`<form>\n  <input name="full_name" ... />\n  <input name="email" ... />\n  <input name="tour_date" ... />\n</form>`}
-                  className="min-h-[220px] bg-input/50 font-mono text-xs"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Pasted as-is and sent to our field-mapping assistant — nothing is published.
-                </p>
-              </div>
-              <div className="flex justify-between pt-2">
-                <Button variant="ghost" onClick={() => setStage(2)} className="gap-2">
-                  <ArrowLeft className="h-4 w-4" /> Back
-                </Button>
-                <Button onClick={handleFormNext} size="lg" className="btn-gold gap-2">
-                  Next <ArrowRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </motion.div>
-          )}
-
           {stage === 3 && (
             <motion.div
               key="step3"
@@ -539,7 +477,7 @@ export function OnboardingWizard() {
               {/* Sticky finish bar — always visible while reviewing the manual */}
               <div className="sticky bottom-3 z-20 -mx-2 mt-4 rounded-2xl border border-primary/40 bg-card/95 p-3 shadow-[0_8px_30px_rgba(0,0,0,0.45),0_0_24px_oklch(0.78_0.16_85_/_0.25)] backdrop-blur supports-[backdrop-filter]:bg-card/80 print:hidden sm:-mx-4">
                 <div className="flex items-center justify-between gap-2">
-                  <Button variant="ghost" onClick={() => setStage("form")} className="gap-2">
+                  <Button variant="ghost" onClick={() => setStage(2)} className="gap-2">
                     <ArrowLeft className="h-4 w-4" /> Back
                   </Button>
                   <div className="flex gap-2">

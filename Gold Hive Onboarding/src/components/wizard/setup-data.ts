@@ -77,7 +77,7 @@ export const PLATFORM_OPTIONS: PlatformOption[] = [
   { label: "Peek", slug: "peek", icon: Compass, setup: "Other" },
   { label: "Rezdy", slug: "rezdy", icon: Ticket, setup: "Other" },
   // Hand-coded / framework sites — developer-targeted guide (own slug + guide)
-  { label: "Custom / Coded Website", slug: "custom", icon: Code2, setup: "Custom" },
+  { label: "Custom", slug: "custom", icon: Code2, setup: "Custom" },
   // Catch-all
   { label: "Other", slug: "other", icon: MoreHorizontal, setup: "Other" },
 ];
