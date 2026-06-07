@@ -1,21 +1,8 @@
 import { type ComponentType } from "react";
 import {
-  Layout,
-  Box,
-  Globe,
-  Zap,
   MoreHorizontal,
-  Anchor,
   FileText,
   Link as LinkIcon,
-  Newspaper,
-  Layers,
-  Frame,
-  ShoppingBag,
-  Image as ImageIcon,
-  Server,
-  Compass,
-  Ticket,
   Code2,
   type LucideProps,
 } from "lucide-react";
@@ -33,17 +20,6 @@ export type BookingType =
   | "Form on my website"
   | "External Booking Link"
   | "FareHarbor";
-
-export const PLATFORMS: {
-  value: Exclude<Platform, "FareHarbor">;
-  icon: ComponentType<LucideProps>;
-}[] = [
-  { value: "Wix", icon: Layout },
-  { value: "Squarespace", icon: Box },
-  { value: "Odoo", icon: Globe },
-  { value: "GoHighLevel", icon: Zap },
-  { value: "Other", icon: MoreHorizontal },
-];
 
 /**
  * Platform selector options (Task 2). Decoupled from the typed `Platform` union
@@ -68,7 +44,10 @@ export type PlatformBooking = "choose" | "native" | "fareharbor" | "external";
 export interface PlatformOption {
   label: string;
   slug: string;
-  icon: ComponentType<LucideProps>;
+  // Brand platforms use `iconSrc` (a logo in /public/platform-icons); Custom &
+  // Other keep a generic lucide `icon`. Exactly one is set per option.
+  icon?: ComponentType<LucideProps>;
+  iconSrc?: string;
   setup: Platform; // which SetupGuide content to show
   booking: PlatformBooking; // whether/how Section 2 is shown
   provider?: string; // for booking: "external" — matches a PROVIDER_SETUP key
@@ -76,27 +55,29 @@ export interface PlatformOption {
 
 export const PLATFORM_OPTIONS: PlatformOption[] = [
   // Existing (own setup guides)
-  { label: "Wix", slug: "wix", icon: Layout, setup: "Wix", booking: "choose" },
-  { label: "Squarespace", slug: "squarespace", icon: Box, setup: "Squarespace", booking: "choose" },
-  { label: "Odoo", slug: "odoo", icon: Globe, setup: "Odoo", booking: "choose" },
-  // GoHighLevel owns checkout (native funnels / order forms / calendars)
-  { label: "GoHighLevel", slug: "gohighlevel", icon: Zap, setup: "GoHighLevel", booking: "native" },
+  { label: "Wix", slug: "wix", iconSrc: "/platform-icons/wix.svg", setup: "Wix", booking: "choose" },
+  { label: "Squarespace", slug: "squarespace", iconSrc: "/platform-icons/squarespace.svg", setup: "Squarespace", booking: "choose" },
+  { label: "Odoo", slug: "odoo", iconSrc: "/platform-icons/odoo.svg", setup: "Odoo", booking: "choose" },
+  // GoHighLevel can take bookings on-site (native funnels / calendars) OR via an
+  // external link — not single-path like Shopify, so the vendor picks (Section 2).
+  { label: "GoHighLevel", slug: "gohighlevel", iconSrc: "/platform-icons/gohighlevel.svg", setup: "GoHighLevel", booking: "choose" },
   // New (Task 2) — generic "Other" guide, own slug
-  { label: "WordPress", slug: "wordpress", icon: Newspaper, setup: "Other", booking: "choose" },
-  { label: "Webflow", slug: "webflow", icon: Layers, setup: "Other", booking: "choose" },
-  { label: "Framer", slug: "framer", icon: Frame, setup: "Other", booking: "choose" },
+  { label: "WordPress", slug: "wordpress", iconSrc: "/platform-icons/wordpress.svg", setup: "Other", booking: "choose" },
+  { label: "Webflow", slug: "webflow", iconSrc: "/platform-icons/webflow.svg", setup: "Other", booking: "choose" },
+  { label: "Framer", slug: "framer", iconSrc: "/platform-icons/framer.svg", setup: "Other", booking: "choose" },
   // Shopify owns checkout
-  { label: "Shopify", slug: "shopify", icon: ShoppingBag, setup: "Other", booking: "native" },
-  { label: "Showit", slug: "showit", icon: ImageIcon, setup: "Other", booking: "choose" },
-  // GoDaddy owns checkout (online store + Appointments)
-  { label: "GoDaddy", slug: "godaddy", icon: Server, setup: "Other", booking: "native" },
+  { label: "Shopify", slug: "shopify", iconSrc: "/platform-icons/shopify.svg", setup: "Other", booking: "native" },
+  { label: "Showit", slug: "showit", iconSrc: "/platform-icons/showit.svg", setup: "Other", booking: "choose" },
+  // GoDaddy can take bookings on-site (online store / Appointments) OR via an
+  // external link — not single-path like Shopify, so the vendor picks (Section 2).
+  { label: "GoDaddy", slug: "godaddy", iconSrc: "/platform-icons/godaddy.svg", setup: "Other", booking: "choose" },
   // Reservation platforms — booking handled by the platform itself
-  { label: "FareHarbor", slug: "fareharbor", icon: Anchor, setup: "FareHarbor", booking: "fareharbor" },
-  { label: "Peek", slug: "peek", icon: Compass, setup: "Other", booking: "external", provider: "Peek" },
-  { label: "Rezdy", slug: "rezdy", icon: Ticket, setup: "Other", booking: "external", provider: "Rezdy" },
-  // Hand-coded / framework sites — developer-targeted guide (own slug + guide)
+  { label: "FareHarbor", slug: "fareharbor", iconSrc: "/platform-icons/fareharbor.png", setup: "FareHarbor", booking: "fareharbor" },
+  { label: "Peek", slug: "peek", iconSrc: "/platform-icons/peek.svg", setup: "Other", booking: "external", provider: "Peek" },
+  { label: "Rezdy", slug: "rezdy", iconSrc: "/platform-icons/rezdy.svg", setup: "Other", booking: "external", provider: "Rezdy" },
+  // Hand-coded / framework sites — keep a generic lucide icon (no brand logo)
   { label: "Custom", slug: "custom", icon: Code2, setup: "Custom", booking: "choose" },
-  // Catch-all
+  // Catch-all — keep a generic lucide icon
   { label: "Other", slug: "other", icon: MoreHorizontal, setup: "Other", booking: "choose" },
 ];
 

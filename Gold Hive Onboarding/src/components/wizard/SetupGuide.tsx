@@ -1,7 +1,9 @@
 import { type ReactNode } from "react";
 import { motion } from "framer-motion";
-import { BadgeCheck, Sparkles } from "lucide-react";
+import { BadgeCheck, Sparkles, Check, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { CodeBlock } from "./CodeBlock";
+import { buildTrackingSnippet } from "@/lib/tracking-snippet";
 import {
   PLATFORM_SETUP,
   OTHER_PLATFORM_SETUP,
@@ -14,12 +16,22 @@ import {
   type ClickStep,
 } from "./setup-data";
 
+export type VerifyState = "idle" | "checking" | "installed" | "notyet";
+
 interface Props {
   platform: Platform | "";
   bookingType: BookingType | "";
   companyName?: string;
   websiteUrl?: string;
   provider?: string;
+  // Self-serve install verification (tracking-script path only). vendorId is set
+  // once the vendor is registered at Step 1; with it we render their real,
+  // copy-ready snippet plus a one-click "Check installation" button.
+  vendorId?: string | null;
+  trackingBase?: string;
+  verifyState?: VerifyState;
+  verifyLink?: string;
+  onCheckInstall?: () => void;
 }
 
 // Full vendor help doc (privacy, how it works, per-platform locations, troubleshooting).
@@ -68,6 +80,11 @@ export function SetupGuide({
   companyName = "",
   websiteUrl = "",
   provider = "",
+  vendorId = null,
+  trackingBase = "",
+  verifyState = "idle",
+  verifyLink = "",
+  onCheckInstall,
 }: Props) {
   const isFareHarbor =
     bookingType === "FareHarbor" || platform === "FareHarbor";
@@ -163,6 +180,10 @@ export function SetupGuide({
   }
 
   // ----- Default: install the tracking script (form / website platforms)
+  const trackingCode =
+    vendorId && trackingBase
+      ? buildTrackingSnippet(vendorId, trackingBase)
+      : TRACKING_SNIPPET_EXAMPLE;
   return (
     <Wrapper>
       <Section title="Install your tracking code">
@@ -179,13 +200,21 @@ export function SetupGuide({
           <code className="rounded bg-secondary/60 px-1 py-0.5 font-mono text-xs">
             tracking.js
           </code>{" "}
-          line. Your personalized code, with your real vendor ID filled in, is
-          on the final screen and emailed to you.
+          line.{" "}
+          {vendorId
+            ? "This is your personalized code — your vendor ID is already filled in. We'll also email you a copy."
+            : "Your personalized code, with your real vendor ID filled in, is emailed to you when you finish."}
         </p>
         <CopyableCode
           label="Your tracking code"
-          code={TRACKING_SNIPPET_EXAMPLE}
+          code={trackingCode}
           language="html"
+        />
+        <InstallCheck
+          vendorId={vendorId}
+          verifyState={verifyState}
+          verifyLink={verifyLink}
+          onCheckInstall={onCheckInstall}
         />
         <WhereLine
           location={setup.scriptLocation}
@@ -193,15 +222,6 @@ export function SetupGuide({
         />
         <PlainSteps steps={setup.scriptSteps} note={setup.scriptNote} />
       </Section>
-
-      <VerifyLine>
-        Open your site through a Gold Hive link, then in DevTools → Application
-        → Cookies look for{" "}
-        <code className="rounded bg-secondary/60 px-1 py-0.5 font-mono text-xs text-primary">
-          gh_partner_id
-        </code>
-        . If it's there, the script is working.
-      </VerifyLine>
 
       {isFormPath && (
         <p className="text-[0.95rem] leading-relaxed text-foreground/90">
@@ -297,6 +317,84 @@ function VerifyLine({ children }: { children: ReactNode }) {
       <span className="font-semibold text-foreground">Verify: </span>
       {children}
     </p>
+  );
+}
+
+// One-click install check, shown right under the tracking code. Replaces the old
+// DevTools instructions: the vendor publishes the snippet, opens their test link
+// (one harmless ping, no booking/customer data), then clicks to confirm.
+function InstallCheck({
+  vendorId,
+  verifyState,
+  verifyLink,
+  onCheckInstall,
+}: {
+  vendorId: string | null;
+  verifyState: VerifyState;
+  verifyLink: string;
+  onCheckInstall?: () => void;
+}) {
+  return (
+    <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
+      <div className="mb-1 flex items-center gap-2">
+        <Check className="h-4 w-4 text-primary" />
+        <span className="text-sm font-semibold text-foreground">
+          Check your installation
+        </span>
+      </div>
+      <p className="mb-3 text-sm leading-relaxed text-muted-foreground">
+        After you've published the code,{" "}
+        {verifyLink ? (
+          <>
+            open{" "}
+            <a
+              href={verifyLink}
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium text-primary hover:underline"
+            >
+              your test link
+            </a>
+          </>
+        ) : (
+          "open your published site through a Gold Hive link"
+        )}{" "}
+        — it sends one harmless test ping (no booking, no customer data) — then
+        click the button below. No developer tools needed.
+      </p>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          onClick={onCheckInstall}
+          disabled={!vendorId || !onCheckInstall || verifyState === "checking"}
+          variant="outline"
+          className="gap-2 border-primary/40 text-primary hover:bg-primary/10 hover:text-primary"
+        >
+          {verifyState === "checking" ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Check className="h-4 w-4" />
+          )}
+          Check installation
+        </Button>
+        {verifyState === "installed" && (
+          <span className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-500">
+            <Check className="h-4 w-4" /> Tracking is live — you're all set.
+          </span>
+        )}
+        {verifyState === "notyet" && (
+          <span className="text-sm text-muted-foreground">
+            Not detected yet — open the test link on your published site, then
+            check again.
+          </span>
+        )}
+      </div>
+      {!vendorId && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          Your tracking ID isn't ready yet — finish the steps and we'll enable
+          one-click verification.
+        </p>
+      )}
+    </div>
   );
 }
 

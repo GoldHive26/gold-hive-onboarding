@@ -13,15 +13,20 @@ function highlight(code: string, language: string) {
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
   if (language === "html") {
-    return escape(code)
-      .replace(
-        /(&lt;\/?)([a-zA-Z0-9-]+)/g,
-        '$1<span class="text-[oklch(0.78_0.14_85)]">$2</span>',
-      )
-      .replace(
-        /([a-zA-Z-]+)=(&quot;|")(.*?)(&quot;|")/g,
-        '<span class="text-[oklch(0.75_0.08_180)]">$1</span>=<span class="text-[oklch(0.82_0.12_60)]">"$3"</span>',
-      );
+    return (
+      escape(code)
+        .replace(
+          /(&lt;\/?)([a-zA-Z0-9-]+)/g,
+          '$1<span class="text-[oklch(0.78_0.14_85)]">$2</span>',
+        )
+        // Match only escaped quotes (&quot;) so this never re-matches the literal
+        // class="..." of the <span> tags injected just above (which would corrupt
+        // the markup into `<class="...">script>`).
+        .replace(
+          /([a-zA-Z-]+)=&quot;(.*?)&quot;/g,
+          '<span class="text-[oklch(0.75_0.08_180)]">$1</span>=<span class="text-[oklch(0.82_0.12_60)]">&quot;$2&quot;</span>',
+        )
+    );
   }
   if (language === "url") {
     return escape(code).replace(
@@ -56,7 +61,9 @@ export function CodeBlock({ code, language = "html" }: CodeBlockProps) {
               ? "bg-emerald-500 text-white hover:bg-emerald-500 shadow-[0_0_20px_oklch(0.7_0.18_150_/_0.5)] scale-105"
               : "btn-gold")
           }
-          aria-label={copied ? "Code copied to clipboard" : "Copy code to clipboard"}
+          aria-label={
+            copied ? "Code copied to clipboard" : "Copy code to clipboard"
+          }
         >
           {copied ? (
             <>
