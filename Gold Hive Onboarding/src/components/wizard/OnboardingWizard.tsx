@@ -25,16 +25,23 @@ import { Scanner, type ScanResult } from "./Scanner";
 
 // Tracking host — stays on the Vercel domain until the Week 4 CNAME swap.
 const TRACKING_BASE = "https://gold-hive-attribution.vercel.app";
+// Reserved partner id for the self-serve "Verify installation" ping. The vendor
+// opens their own site with ?gh_partner=<this>; tracking.js fires one `visit`,
+// the webhook flips vendors.tracking_installed and stores nothing. Keep in sync
+// with VERIFY_PARTNER_ID in gold-hive-attribution/src/webhook/handle-booking.ts.
+const VERIFY_PARTNER_ID = "feedface-0000-4000-8000-000000000001";
 const WEBHOOK_SETUP_DOC =
   "https://github.com/GoldHive26/gold-hive-attribution/blob/main/docs/vendor-webhook-setup.md";
 import {
   PLATFORM_OPTIONS,
   platformOptionForScan,
+  bookingBehaviorForSlug,
   BOOKING_TYPES,
   SUPPORT_NAME,
   SUPPORT_EMAIL,
   type Platform,
   type BookingType,
+  type PlatformOption,
 } from "./setup-data";
 
 type Stage = "scan" | 1 | 2 | 3;
@@ -45,6 +52,9 @@ export function OnboardingWizard() {
   const [submitting, setSubmitting] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [vendorId, setVendorId] = useState<string | null>(null);
+  const [verifyState, setVerifyState] = useState<
+    "idle" | "checking" | "installed" | "notyet"
+  >("idle");
 
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [companyName, setCompanyName] = useState("");
@@ -57,11 +67,33 @@ export function OnboardingWizard() {
   const [bookingType, setBookingType] = useState<BookingType | "">("");
   const [provider, setProvider] = useState<string>("");
 
-  const selectPlatform = (opt: { setup: Platform; slug: string; label: string }) => {
+  const selectPlatform = (opt: PlatformOption) => {
     setPlatform(opt.setup);
     setPlatformSlug(opt.slug);
     setPlatformLabel(opt.label);
+    // Section 2 is platform-aware: for platforms that own the booking/checkout we
+    // pre-set the implied method and hide the question (see PlatformOption.booking).
+    switch (opt.booking) {
+      case "external":
+        // Platform hosts the booking page (Peek, Rezdy) → tagged external link.
+        setBookingType("External Booking Link");
+        setProvider(opt.provider ?? "");
+        break;
+      case "native": // checkout on the vendor's own site → tracking-script guide
+      case "fareharbor": // affiliate path keyed off `platform === "FareHarbor"`
+      case "choose": // vendor picks; clear any auto value from a prior selection
+        setBookingType("");
+        setProvider("");
+        break;
+    }
   };
+
+  // Section 2 ("how do guests book or make a purchase") only applies to platforms
+  // where the vendor chooses their method; platforms that own booking/checkout
+  // hide it. Shown by default until a platform is picked.
+  const bookingBehavior = bookingBehaviorForSlug(platformSlug);
+  const showBookingSection =
+    bookingBehavior === undefined || bookingBehavior === "choose";
 
   const totalSteps = 3;
   const STEP_OF: Record<Exclude<Stage, "scan">, number> = { 1: 1, 2: 2, 3: 3 };
@@ -109,8 +141,14 @@ export function OnboardingWizard() {
   };
 
   const handleStep2Next = async () => {
-    if (!platformSlug || !bookingType) {
-      toast.error("Pick a platform and booking method.");
+    if (!platformSlug) {
+      toast.error("Pick a platform.");
+      return;
+    }
+    // Only platforms that show Section 2 require an explicit booking method;
+    // for the rest the platform itself determines it.
+    if (showBookingSection && !bookingType) {
+      toast.error("Pick how guests book or make a purchase.");
       return;
     }
     setSubmitting(true);
@@ -120,7 +158,7 @@ export function OnboardingWizard() {
           .from("vendor_onboarding")
           .update({
             website_platform: platformLabel,
-            booking_type: bookingType,
+            booking_type: bookingType || null,
             status: "in_progress",
           })
           .eq("id", recordId);
@@ -168,8 +206,31 @@ export function OnboardingWizard() {
     window.print();
   };
 
+  // Self-serve install check: look up whether the vendor's script has pinged us
+  // yet (set when they open their site via the verify test link, or on any real
+  // Gold Hive booking). Manual — the vendor clicks "Check installation".
+  const checkInstall = async () => {
+    if (!vendorId) return;
+    setVerifyState("checking");
+    try {
+      const res = await fetch(`${TRACKING_BASE}/webhook/verify?vendor_id=${vendorId}`);
+      const data = await res.json();
+      setVerifyState(data?.installed ? "installed" : "notyet");
+    } catch {
+      setVerifyState("notyet");
+    }
+  };
+
   if (completed) {
     const scriptTag = vendorId ? buildTrackingSnippet(vendorId, TRACKING_BASE) : "";
+    const normalizedSite = websiteUrl.trim()
+      ? /^https?:\/\//i.test(websiteUrl.trim())
+        ? websiteUrl.trim()
+        : `https://${websiteUrl.trim()}`
+      : "";
+    const verifyLink = normalizedSite
+      ? `${normalizedSite}${normalizedSite.includes("?") ? "&" : "?"}gh_partner=${VERIFY_PARTNER_ID}`
+      : "";
     return (
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
@@ -186,8 +247,8 @@ export function OnboardingWizard() {
         </motion.div>
         <h2 className="mb-2 text-3xl font-semibold tracking-tight">Welcome to the Hive</h2>
         <p className="mx-auto mb-6 max-w-md text-muted-foreground">
-          Your integration is registered. Our team will run a verification booking within 1
-          business day. Once confirmed, you'll receive credentials for your Partner Dashboard.
+          Your integration is registered. Install the snippet below and verify it yourself in
+          seconds — your Partner Dashboard credentials are on their way to your inbox.
         </p>
         <div className="mx-auto mb-6 flex max-w-sm flex-col gap-2 rounded-xl border border-border bg-secondary/30 p-4 text-left text-sm">
           <div className="flex items-center gap-2 text-primary">
@@ -195,7 +256,7 @@ export function OnboardingWizard() {
             <span className="font-medium">What's next</span>
           </div>
           <ul className="space-y-1 pl-6 text-muted-foreground">
-            <li className="list-disc">Verification test booking (within 24 hours)</li>
+            <li className="list-disc">Verify your install with the button below</li>
             <li className="list-disc">Partner Dashboard credentials emailed to you</li>
             <li className="list-disc">Listed in the Gold Hive partner directory</li>
           </ul>
@@ -217,6 +278,66 @@ export function OnboardingWizard() {
               </a>
             </p>
             <CodeBlock code={scriptTag} language="html" />
+          </div>
+        )}
+
+        {vendorId && (
+          <div className="mx-auto mb-6 max-w-xl text-left">
+            <h3 className="mb-1 text-sm font-semibold tracking-tight">
+              Verify it's working
+            </h3>
+            <p className="mb-3 text-xs text-muted-foreground">
+              Once the snippet is published on your site,{" "}
+              {verifyLink ? (
+                <>
+                  open{" "}
+                  <a
+                    href={verifyLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    your test link
+                  </a>
+                </>
+              ) : (
+                <>
+                  open your site with{" "}
+                  <code className="rounded bg-secondary/60 px-1 py-0.5 font-mono">
+                    ?gh_partner={VERIFY_PARTNER_ID}
+                  </code>{" "}
+                  added to the address
+                </>
+              )}{" "}
+              — it sends one harmless test ping (no booking, no customer data) —
+              then check below.
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                onClick={checkInstall}
+                disabled={verifyState === "checking"}
+                variant="outline"
+                className="gap-2 border-primary/40 text-primary hover:bg-primary/10 hover:text-primary"
+              >
+                {verifyState === "checking" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="h-4 w-4" />
+                )}
+                Check installation
+              </Button>
+              {verifyState === "installed" && (
+                <span className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-500">
+                  <Check className="h-4 w-4" /> Tracking is live — you're all set.
+                </span>
+              )}
+              {verifyState === "notyet" && (
+                <span className="text-sm text-muted-foreground">
+                  Not detected yet — open the test link on your published site,
+                  then check again.
+                </span>
+              )}
+            </div>
           </div>
         )}
 
@@ -340,15 +461,18 @@ export function OnboardingWizard() {
                 <h2 className="text-3xl font-semibold tracking-tight">Your Tech Stack</h2>
                 <p className="mt-2 text-muted-foreground">
                   {platform || bookingType
-                    ? "We pre-filled this from your scan — confirm or adjust."
+                    ? "We pre-filled this from your scan — confirm or adjust below."
                     : "Tell us how your site is built so we can tailor the setup instructions."}
                 </p>
               </div>
 
               <div>
-                <Label className="mb-3 block text-sm font-medium">
-                  What is your Website Platform?
-                </Label>
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
+                    1
+                  </span>
+                  <Label className="text-sm font-medium">Your website platform</Label>
+                </div>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
                   {PLATFORM_OPTIONS.map((p) => {
                     const Icon = p.icon;
@@ -373,8 +497,16 @@ export function OnboardingWizard() {
                 </div>
               </div>
 
+              {showBookingSection && (
               <div>
-                <Label className="mb-3 block text-sm font-medium">How do guests book?</Label>
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
+                    2
+                  </span>
+                  <Label className="text-sm font-medium">
+                    How do guests book or make a purchase?
+                  </Label>
+                </div>
                 <div className="space-y-2.5">
                   {BOOKING_TYPES.map((b) => {
                     const Icon = b.icon;
@@ -398,7 +530,7 @@ export function OnboardingWizard() {
                         </div>
                         <div className="flex-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-sm font-medium">{b.value}</span>
+                            <span className="text-sm font-medium">{b.label}</span>
                             {showProviderChip && (
                               <span className="inline-flex items-center gap-1 rounded-md border border-primary/50 bg-background px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary shadow-[var(--shadow-gold)]">
                                 Detected: {provider}
@@ -413,6 +545,7 @@ export function OnboardingWizard() {
                   })}
                 </div>
               </div>
+              )}
 
               <div className="flex justify-between pt-2">
                 <Button variant="ghost" onClick={() => setStage(1)} className="gap-2">

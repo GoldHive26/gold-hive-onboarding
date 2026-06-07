@@ -53,33 +53,51 @@ export const PLATFORMS: {
  * missing guide. The original five keep their own guides; FareHarbor uses its
  * existing FareHarbor-specific branch in SetupGuide.
  */
+/**
+ * How Section 2 ("How do guests book or make a purchase?") behaves per platform:
+ * - "choose"     → show Section 2; the vendor picks their booking method.
+ * - "native"     → hide Section 2; checkout/booking happens on the vendor's own
+ *                  site → default tracking-script guide.
+ * - "fareharbor" → hide Section 2; FareHarbor's affiliate path (special-cased in
+ *                  SetupGuide via `platform === "FareHarbor"`).
+ * - "external"   → hide Section 2; the platform hosts the booking page, so we
+ *                  auto-select the External Booking Link path with `provider`.
+ */
+export type PlatformBooking = "choose" | "native" | "fareharbor" | "external";
+
 export interface PlatformOption {
   label: string;
   slug: string;
   icon: ComponentType<LucideProps>;
   setup: Platform; // which SetupGuide content to show
+  booking: PlatformBooking; // whether/how Section 2 is shown
+  provider?: string; // for booking: "external" — matches a PROVIDER_SETUP key
 }
 
 export const PLATFORM_OPTIONS: PlatformOption[] = [
   // Existing (own setup guides)
-  { label: "Wix", slug: "wix", icon: Layout, setup: "Wix" },
-  { label: "Squarespace", slug: "squarespace", icon: Box, setup: "Squarespace" },
-  { label: "Odoo", slug: "odoo", icon: Globe, setup: "Odoo" },
-  { label: "GoHighLevel", slug: "gohighlevel", icon: Zap, setup: "GoHighLevel" },
+  { label: "Wix", slug: "wix", icon: Layout, setup: "Wix", booking: "choose" },
+  { label: "Squarespace", slug: "squarespace", icon: Box, setup: "Squarespace", booking: "choose" },
+  { label: "Odoo", slug: "odoo", icon: Globe, setup: "Odoo", booking: "choose" },
+  // GoHighLevel owns checkout (native funnels / order forms / calendars)
+  { label: "GoHighLevel", slug: "gohighlevel", icon: Zap, setup: "GoHighLevel", booking: "native" },
   // New (Task 2) — generic "Other" guide, own slug
-  { label: "WordPress", slug: "wordpress", icon: Newspaper, setup: "Other" },
-  { label: "Webflow", slug: "webflow", icon: Layers, setup: "Other" },
-  { label: "Framer", slug: "framer", icon: Frame, setup: "Other" },
-  { label: "Shopify", slug: "shopify", icon: ShoppingBag, setup: "Other" },
-  { label: "Showit", slug: "showit", icon: ImageIcon, setup: "Other" },
-  { label: "GoDaddy", slug: "godaddy", icon: Server, setup: "Other" },
-  { label: "FareHarbor", slug: "fareharbor", icon: Anchor, setup: "FareHarbor" },
-  { label: "Peek", slug: "peek", icon: Compass, setup: "Other" },
-  { label: "Rezdy", slug: "rezdy", icon: Ticket, setup: "Other" },
+  { label: "WordPress", slug: "wordpress", icon: Newspaper, setup: "Other", booking: "choose" },
+  { label: "Webflow", slug: "webflow", icon: Layers, setup: "Other", booking: "choose" },
+  { label: "Framer", slug: "framer", icon: Frame, setup: "Other", booking: "choose" },
+  // Shopify owns checkout
+  { label: "Shopify", slug: "shopify", icon: ShoppingBag, setup: "Other", booking: "native" },
+  { label: "Showit", slug: "showit", icon: ImageIcon, setup: "Other", booking: "choose" },
+  // GoDaddy owns checkout (online store + Appointments)
+  { label: "GoDaddy", slug: "godaddy", icon: Server, setup: "Other", booking: "native" },
+  // Reservation platforms — booking handled by the platform itself
+  { label: "FareHarbor", slug: "fareharbor", icon: Anchor, setup: "FareHarbor", booking: "fareharbor" },
+  { label: "Peek", slug: "peek", icon: Compass, setup: "Other", booking: "external", provider: "Peek" },
+  { label: "Rezdy", slug: "rezdy", icon: Ticket, setup: "Other", booking: "external", provider: "Rezdy" },
   // Hand-coded / framework sites — developer-targeted guide (own slug + guide)
-  { label: "Custom", slug: "custom", icon: Code2, setup: "Custom" },
+  { label: "Custom", slug: "custom", icon: Code2, setup: "Custom", booking: "choose" },
   // Catch-all
-  { label: "Other", slug: "other", icon: MoreHorizontal, setup: "Other" },
+  { label: "Other", slug: "other", icon: MoreHorizontal, setup: "Other", booking: "choose" },
 ];
 
 /** Find the option matching a value the scanner returns (a `Platform`). */
@@ -87,18 +105,32 @@ export function platformOptionForScan(scanned: string): PlatformOption | undefin
   return PLATFORM_OPTIONS.find((o) => o.label === scanned);
 }
 
+/** Section-2 booking behavior for a stored platform slug ("" → undefined). */
+export function bookingBehaviorForSlug(slug: string): PlatformBooking | undefined {
+  return PLATFORM_OPTIONS.find((o) => o.slug === slug)?.booking;
+}
+
+// Section-2 options shown only for `booking: "choose"` platforms. `label` is what
+// the vendor sees; `value` is the stored/attribution key (unchanged). FareHarbor
+// is intentionally absent — it's covered by selecting FareHarbor as the platform.
 export const BOOKING_TYPES: {
   value: BookingType;
+  label: string;
   icon: ComponentType<LucideProps>;
   desc: string;
 }[] = [
-  { value: "Form on my website", icon: FileText, desc: "Native form embedded on your site" },
+  {
+    value: "Form on my website",
+    label: "Booking or checkout on my site",
+    icon: FileText,
+    desc: "Guests book or check out directly on your site (form or native checkout)",
+  },
   {
     value: "External Booking Link",
+    label: "External Booking Link",
     icon: LinkIcon,
     desc: "Redirects guests to a third-party booking page (Peek, Journey, Calendly, etc.)",
   },
-  { value: "FareHarbor", icon: Anchor, desc: "FareHarbor reservation platform" },
 ];
 
 // Single webhook tracking script. The deployed tracking.js reads its settings
