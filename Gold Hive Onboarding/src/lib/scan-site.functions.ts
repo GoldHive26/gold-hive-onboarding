@@ -6,7 +6,7 @@ export interface SiteScanResult {
   finalUrl?: string;
   status?: number;
   error?: string;
-  platform: "" | "Wix" | "Squarespace" | "Odoo" | "GoHighLevel" | "FareHarbor" | "Other";
+  platform: "" | "Wix" | "Squarespace" | "Odoo" | "GoHighLevel" | "FareHarbor" | "WordPress" | "Webflow" | "Shopify" | "Framer" | "Other";
   platformConfidence: "high" | "medium" | "low" | "none";
   bookingType: "" | "Form on my website" | "External Booking Link" | "FareHarbor";
   bookingConfidence: "high" | "medium" | "low" | "none";
@@ -37,6 +37,11 @@ const PLATFORM_FINGERPRINTS: Array<{ name: SiteScanResult["platform"]; patterns:
   { name: "Odoo", patterns: [/\/web\/assets\//i, /odoo\.com/i, /<meta\s+name=["']generator["']\s+content=["']Odoo/i] },
   { name: "GoHighLevel", patterns: [/leadconnectorhq/i, /msgsndr\.com/i, /highlevel/i, /gohighlevel/i] },
   { name: "FareHarbor", patterns: [/fareharbor\.com/i, /fhcdn\.co/i] },
+  { name: "Shopify", patterns: [/cdn\.shopify\.com/i, /myshopify\.com/i, /Shopify\.theme/i, /<meta\s+name=["']generator["']\s+content=["']Shopify/i] },
+  { name: "Webflow", patterns: [/\.website-files\.com/i, /<meta\s+name=["']generator["']\s+content=["']Webflow/i, /\bdata-wf-(?:page|site|domain)\b/i] },
+  { name: "Framer", patterns: [/framerusercontent\.com/i, /<meta\s+name=["']generator["']\s+content=["']Framer/i] },
+  // WordPress last: it's the broadest, so a more specific builder above wins a tie.
+  { name: "WordPress", patterns: [/\/wp-content\//i, /\/wp-includes\//i, /<meta\s+name=["']generator["']\s+content=["']WordPress/i] },
 ];
 
 const BOOKING_PROVIDERS: Array<{ name: string; patterns: RegExp[]; type: SiteScanResult["bookingType"] }> = [
@@ -163,6 +168,10 @@ function analyzeHtml(html: string, finalUrl: string): PageAnalysis {
     if (g.includes("wix")) { out.platform = "Wix"; out.platformConfidence = "high"; out.cms.push("Wix"); }
     else if (g.includes("squarespace")) { out.platform = "Squarespace"; out.platformConfidence = "high"; out.cms.push("Squarespace"); }
     else if (g.includes("odoo")) { out.platform = "Odoo"; out.platformConfidence = "high"; out.cms.push("Odoo"); }
+    else if (g.includes("wordpress")) { out.platform = "WordPress"; out.platformConfidence = "high"; out.cms.push("WordPress"); }
+    else if (g.includes("webflow")) { out.platform = "Webflow"; out.platformConfidence = "high"; out.cms.push("Webflow"); }
+    else if (g.includes("shopify")) { out.platform = "Shopify"; out.platformConfidence = "high"; out.cms.push("Shopify"); }
+    else if (g.includes("framer")) { out.platform = "Framer"; out.platformConfidence = "high"; out.cms.push("Framer"); }
   }
 
   out.title = extractTitle(html);
@@ -391,7 +400,13 @@ export const scanSite = createServerFn({ method: "POST" })
       pathLabel = "Path A — Native Form";
       recommendations.push("Inject the tracking script + add a hidden referral_source field to your booking form.");
     }
-    if (!merged.platform) recommendations.push("We couldn't fingerprint your CMS — pick it manually on the next step.");
+    if (!merged.platform) {
+      recommendations.push(
+        !merged.bookingType
+          ? 'No CMS or booking provider detected — looks like a custom-coded site. Pick "Custom" on the next step for developer install instructions.'
+          : "We couldn't fingerprint your CMS — pick it manually on the next step.",
+      );
+    }
     if (!merged.bookingType) {
       recommendations.push(
         pagesScanned.length > 1
