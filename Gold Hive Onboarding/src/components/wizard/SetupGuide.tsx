@@ -1,4 +1,5 @@
 import { type ReactNode } from "react";
+import { Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { BadgeCheck, Sparkles, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -33,11 +34,6 @@ interface Props {
   verifyLink?: string;
   onCheckInstall?: () => void;
 }
-
-// Full vendor help doc (privacy, how it works, per-platform locations, troubleshooting).
-// Lives in the attribution repo; this is the public GitHub copy linked as "Learn more".
-const SETUP_DOC_URL =
-  "https://github.com/GoldHive26/gold-hive-attribution/blob/main/docs/vendor-webhook-setup.md";
 
 function buildUtmLink(websiteUrl: string, businessName: string) {
   const safeUrl = websiteUrl?.trim()
@@ -401,14 +397,9 @@ function InstallCheck({
 function LearnMore() {
   return (
     <p className="text-sm text-muted-foreground">
-      <a
-        href={SETUP_DOC_URL}
-        target="_blank"
-        rel="noreferrer"
-        className="font-medium text-primary hover:underline"
-      >
-        Privacy, how it works &amp; troubleshooting →
-      </a>
+      <Link to="/privacy" className="font-medium text-primary hover:underline">
+        Privacy &amp; how it works →
+      </Link>
     </p>
   );
 }

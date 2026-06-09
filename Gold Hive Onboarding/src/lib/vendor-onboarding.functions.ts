@@ -44,6 +44,9 @@ const registerVendorInput = z.object({
   company_name: z.string().trim().min(1).max(200),
   // The contact person's name — used only to address the credential email.
   contact_name: z.string().trim().max(200).optional(),
+  // The vendor's site URL (scan finalUrl, else what they typed in the wizard).
+  // Auto-captured into vendors.website; admins can override later. Nullable.
+  website: z.string().trim().max(500).optional(),
 });
 
 // Wizard finish: flip the vendor's platform, send the (now personalized)
@@ -135,6 +138,7 @@ async function resumeExistingVendor(
   supabase: ReturnType<typeof admin>,
   email: string,
   companyName: string,
+  website?: string,
 ): Promise<RegisterVendorResult> {
   const { data: rows } = await supabase
     .from("vendors")
@@ -170,6 +174,7 @@ async function resumeExistingVendor(
       commission_percent: 10,
       pay_cycle: "monthly",
       platform: null,
+      website: website?.trim() || null,
     })
     .select("id")
     .single();
@@ -204,7 +209,12 @@ export async function registerVendorCore(
     const msg = createErr?.message ?? "Failed to create account";
     // Duplicate email → resume the existing vendor instead of dead-ending.
     if (/already|exist|registered/i.test(msg)) {
-      return resumeExistingVendor(supabase, email, data.company_name);
+      return resumeExistingVendor(
+        supabase,
+        email,
+        data.company_name,
+        data.website,
+      );
     }
     return { ok: false, error: "create_failed", message: msg };
   }
@@ -219,6 +229,7 @@ export async function registerVendorCore(
       commission_percent: 10,
       pay_cycle: "monthly",
       platform: null,
+      website: data.website?.trim() || null,
     })
     .select("id")
     .single();

@@ -125,6 +125,11 @@ export function OnboardingWizard() {
     ? `${normalizedSite}${normalizedSite.includes("?") ? "&" : "?"}gh_partner=${VERIFY_PARTNER_ID}`
     : "";
 
+  // Vendor website to stamp onto vendors.website (auto-capture; admin can later
+  // override). Prefer the scan's resolved finalUrl, else what the user typed.
+  const vendorWebsite =
+    scanResult?.finalUrl?.trim() || websiteUrl.trim() || normalizedSite || "";
+
   // Detected booking provider for an external-link result (e.g. Peek, Calendly).
   const detectedProvider =
     scanResult?.signals.bookingProviders[0] ||
@@ -133,6 +138,26 @@ export function OnboardingWizard() {
   // Scan ran but couldn't pin down platform AND booking method.
   const scanInconclusive =
     !!scanResult && (!scanResult.platform || !scanResult.bookingType);
+
+  // For a partial match, name what the scan DID find (platform / booking method /
+  // provider) so the message isn't a generic shrug. Empty fields are skipped; if
+  // nothing was detected at all we fall back to the original generic wording.
+  const partialMatchDetail = (() => {
+    if (!scanResult) return "";
+    const parts: string[] = [];
+    if (scanResult.platform) parts.push(scanResult.platform);
+    if (scanResult.bookingType) {
+      parts.push(
+        scanResult.bookingType === "External Booking Link"
+          ? "an external booking link"
+          : scanResult.bookingType,
+      );
+    }
+    const prov = scanResult.signals.bookingProviders[0];
+    // Avoid repeating the provider if it's already implied by the platform name.
+    if (prov && prov !== scanResult.platform) parts.push(prov);
+    return parts.join(" / ");
+  })();
 
   // Run the inline scan and auto-apply what we detect to the Step-2 selections.
   const handleScan = async () => {
@@ -199,6 +224,7 @@ export function OnboardingWizard() {
             email: contactEmail.trim(),
             company_name: companyName.trim(),
             contact_name: contactName.trim(),
+            website: vendorWebsite || undefined,
           },
         });
         if (res.ok) {
@@ -269,6 +295,7 @@ export function OnboardingWizard() {
             email: contactEmail.trim(),
             company_name: companyName.trim(),
             contact_name: contactName.trim(),
+            website: vendorWebsite || undefined,
           },
         });
         if (!reg.ok) {
@@ -630,9 +657,16 @@ export function OnboardingWizard() {
                       </div>
                       {scanInconclusive ? (
                         <p className="text-xs text-muted-foreground">
-                          We couldn't fully detect your setup — pick your
-                          platform above
-                          {showBookingSection ? " and booking method" : ""}{" "}
+                          {partialMatchDetail
+                            ? `We detected ${partialMatchDetail} but couldn't confirm everything — please confirm your platform`
+                            : "We couldn't fully detect your setup — pick your platform above"}
+                          {showBookingSection
+                            ? partialMatchDetail
+                              ? " and booking method above"
+                              : " and booking method"
+                            : partialMatchDetail
+                              ? " above"
+                              : ""}{" "}
                           manually.
                         </p>
                       ) : (
