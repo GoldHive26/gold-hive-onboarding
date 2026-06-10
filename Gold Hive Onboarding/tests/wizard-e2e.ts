@@ -4,22 +4,22 @@
  * No Playwright/vitest harness exists in this repo, so this is a standalone
  * bun-runnable e2e that drives the REAL two-step path the wizard uses:
  * `registerVendor` (Step 1, silent — no email) then `finalizeVendor`
- * ("Mark Setup Complete" — sets platform + sends the credential email), against
+ * ("Mark Setup Complete" — sets platform; NO email — the welcome/login email
+ * is sent when an admin approves the account in the partner portal), against
  * the dev Supabase + Trigger.dev, then asserts every artifact and cleans up.
  *
  * Run:  bun run tests/wizard-e2e.ts      (from the app dir; Bun loads .env)
  *
  * Covers: auth user + vendors row created at register (10% / monthly, platform
- * null, NO email), platform set + credential-email path at finalize, and the
- * vendor-specific tracking <script> snippet. Field mapping is NO LONGER
- * collected at onboarding (vendors never paste their form) — the webhook
- * auto-learns it from the first real booking — so no mapping is triggered here.
+ * null, NO email, must_set_password metadata), platform set at finalize (no
+ * email — approval gates the login email), and the vendor-specific tracking
+ * <script> snippet. Field mapping is NO LONGER collected at onboarding
+ * (vendors never paste their form) — the webhook auto-learns it from the
+ * first real booking — so no mapping is triggered here.
  *
- * NOT covered here (manual, cross-repo): clicking the magic link logs the
- * vendor into the partner-hub portal and shows an empty dashboard — verify by
- * hand once, since the portal is a separate app. Email *delivery* within 60s
- * was verified in Task 4 (Resend test-mode only delivers to the account owner,
- * so a throwaway recipient here reports emailed=false without a code fault).
+ * NOT covered here (manual, cross-repo): admin approval in the partner-hub
+ * portal sends the magic-link welcome email, and clicking it logs the vendor
+ * into the portal — verify by hand once, since the portal is a separate app.
  */
 import { createClient } from "@supabase/supabase-js";
 import {
@@ -28,7 +28,7 @@ import {
 } from "../src/lib/vendor-onboarding.functions";
 import { buildTrackingSnippet } from "../src/lib/tracking-snippet";
 
-const TRACKING_BASE = "https://gold-hive-attribution.vercel.app";
+const TRACKING_BASE = "https://track.goldhive.org";
 const svc = createClient(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -59,9 +59,13 @@ if (!res.ok) {
 }
 console.log(`  vendor_id=${res.vendor_id} user_id=${res.user_id}`);
 
-// 2. Auth user created.
+// 2. Auth user created, flagged to set a password on first portal login.
 const { data: gotUser } = await svc.auth.admin.getUserById(res.user_id);
 assert(gotUser?.user?.email === email, "auth user created with matching email");
+assert(
+  gotUser?.user?.user_metadata?.must_set_password === true,
+  "auth user carries must_set_password metadata",
+);
 
 // 3. Vendors row created + linked + defaults; platform null until finalize.
 const { data: registered } = await svc
@@ -81,7 +85,7 @@ assert(
   "platform null after register (set at finalize)",
 );
 
-// 4. Finalize ("Mark Setup Complete") — sets platform + sends credential email.
+// 4. Finalize ("Mark Setup Complete") — sets platform (no email at finalize).
 const fin = await finalizeVendorCore({
   vendor_id: res.vendor_id,
   email,
@@ -92,9 +96,7 @@ assert(fin.ok, "finalize succeeds (finalizeVendor ok)");
 if (!fin.ok) {
   console.log("  error:", fin.message);
 }
-console.log(
-  `  emailed=${fin.ok && fin.emailed} mappingTriggered=${fin.ok && fin.mappingTriggered}`,
-);
+console.log(`  mappingTriggered=${fin.ok && fin.mappingTriggered}`);
 
 // 5. Platform slug stored after finalize.
 const { data: finalized } = await svc
@@ -114,10 +116,11 @@ assert(
   "field mapping NOT triggered at onboarding (auto-learned on first booking)",
 );
 
-// 7. Credential-email path ran at finalize (boolean present; delivery proven in Task 4).
+// 7. No email is sent at finalize — approval gates the login email (the
+//    portal's Approvals page sends the magic-link welcome email).
 assert(
-  fin.ok && typeof fin.emailed === "boolean",
-  "credential-email path executed at finalize",
+  fin.ok && !("emailed" in fin),
+  "finalize result carries no emailed flag (email moved to admin approval)",
 );
 
 // 8. Vendor-specific tracking snippet carries the real UUID + config-first shape.
@@ -133,15 +136,16 @@ assert(
   "snippet has config + correct src + webhook",
 );
 
-// 9. Duplicate register with the same email is rejected (no double-insert).
+// 9. Duplicate register with the same email resumes the existing vendor
+//    (no double-insert, no dead-end).
 const dup = await registerVendorCore({
   email,
   company_name: "E2E Tour Co",
   contact_name: "Alex Rivera",
 });
 assert(
-  !dup.ok && dup.error === "already_registered",
-  "duplicate email rejected (already_registered)",
+  dup.ok && dup.resumed === true && dup.vendor_id === res.vendor_id,
+  "duplicate email resumes the existing vendor (no double-insert)",
 );
 const { data: rows } = await svc
   .from("vendors")

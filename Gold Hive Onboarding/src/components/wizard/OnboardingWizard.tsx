@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowRight,
@@ -31,8 +31,8 @@ import {
 import { scanSite, type SiteScanResult } from "@/lib/scan-site.functions";
 import { SetupGuide } from "./SetupGuide";
 
-// Tracking host — stays on the Vercel domain until the Week 4 CNAME swap.
-const TRACKING_BASE = "https://gold-hive-attribution.vercel.app";
+// Tracking host — live attribution Worker domain.
+const TRACKING_BASE = "https://track.goldhive.org";
 // Vendor-facing dashboard. Mirrors VENDOR_PORTAL_URL in vendor-onboarding.functions.ts.
 const PORTAL_URL = "https://portal.goldhive.org";
 // Reserved partner id for the self-serve "Verify installation" ping. The vendor
@@ -56,6 +56,10 @@ type Stage = 1 | 2 | 3;
 
 export function OnboardingWizard() {
   const [stage, setStage] = useState<Stage>(1);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, [stage]);
   const [recordId, setRecordId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [completed, setCompleted] = useState(false);
@@ -287,7 +291,7 @@ export function OnboardingWizard() {
     setSubmitting(true);
     try {
       // The vendor was registered at Step 1; recover the id if that earlier call
-      // failed (so finalize can still send the credential email).
+      // failed (so finalize can still record the platform).
       let id = vendorId;
       if (!id) {
         const reg = await registerVendor({
@@ -306,8 +310,8 @@ export function OnboardingWizard() {
         setVendorId(id);
       }
 
-      // Finalize: set the chosen platform and send the credential email (a magic
-      // login link, addressed to the contact person).
+      // Finalize: set the chosen platform. The login email is sent later, when
+      // Gold Hive approves the account in the partner portal.
       const fin = await finalizeVendor({
         data: {
           vendor_id: id,
@@ -379,13 +383,13 @@ export function OnboardingWizard() {
           Partner Setup Complete
         </h2>
         <p className="mx-auto mb-8 max-w-md text-muted-foreground">
-          You're all set. We've emailed{" "}
+          You're all set. Gold Hive is reviewing your account now — once it's
+          approved, your login details will arrive by email at{" "}
           <span className="text-foreground font-medium">
             {contactEmail || "your inbox"}
-          </span>{" "}
-          a one-time link to log in to your Partner Dashboard — referred
-          bookings, real-time commission, and your payout schedule all live
-          there.
+          </span>
+          . Your Partner Dashboard has referred bookings, real-time commission,
+          and your payout schedule.
         </p>
         <a
           href={PORTAL_URL}
