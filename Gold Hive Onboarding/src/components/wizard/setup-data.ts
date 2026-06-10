@@ -121,7 +121,7 @@ export const BOOKING_TYPES: {
 // BCC, no raw-GitHub script. SetupGuide shows this EXAMPLE shape with a
 // placeholder id; each vendor's personalized snippet (with their real vendorId)
 // is rendered on the wizard completion screen and emailed to them.
-export const TRACKING_BASE = "https://gold-hive-attribution.vercel.app";
+export const TRACKING_BASE = "https://track.goldhive.org";
 export const TRACKING_SNIPPET_EXAMPLE = buildTrackingSnippet(
   "YOUR_VENDOR_ID",
   TRACKING_BASE,
@@ -148,6 +148,10 @@ export interface ClickStep {
   do: string;
   /** Optional clarification rendered as muted helper text under the step. */
   hint?: string;
+  /** Optional bullet list rendered below the hint (e.g. per-framework notes). */
+  bullets?: string[];
+  /** Optional short text rendered in a copyable inline block below the hint. */
+  copyText?: string;
 }
 
 export interface PlatformSetup {
@@ -170,8 +174,18 @@ export const PLATFORM_SETUP: Record<Exclude<Platform, "FareHarbor" | "Other">, P
         do: 'Click inside the "FOOTER" text area (NOT the Header box).',
         hint: "Footer injection ensures the script loads after page content, which is what we need.",
       },
-      { do: "Paste the entire <script> tag shown above." },
+      {
+        do: "Paste the entire snippet — BOTH <script> tags (the window.GoldHive.config block first, then the tracking.js line).",
+        hint: "Copy the whole gold box above in one go and the order is preserved automatically.",
+      },
       { do: 'Click "Save" in the top-left of the page.' },
+      {
+        do: "View the page source of your live site (right-click → View Page Source) and confirm both <script> tags appear.",
+        hint: "This separates two distinct failure modes: tags missing from the live site vs. tags present but not firing.",
+      },
+      {
+        do: "Load any page through a Gold Hive partner link (?gh_partner=…) and confirm the gh_partner_id cookie appears in DevTools → Application → Cookies.",
+      },
     ],
     scriptNote:
       "Code Injection requires a Business plan or higher. On Squarespace 7.1 some accounts show this under Settings → Developer Tools instead — same field, same behavior.",
@@ -185,12 +199,22 @@ export const PLATFORM_SETUP: Record<Exclude<Platform, "FareHarbor" | "Other">, P
       { do: 'In the top bar of the Editor click "Settings".' },
       { do: 'In the left menu click "Custom Code".' },
       { do: 'Click the "+ Add Custom Code" button (top right).' },
-      { do: "Paste the entire <script> tag into the large code box." },
+      {
+        do: "Paste the entire snippet — BOTH <script> tags (the window.GoldHive.config block first, then the tracking.js line) — into the large code box.",
+        hint: "Copy the whole gold box above in one go and the order is preserved automatically.",
+      },
       {
         do: 'Name: "Gold Hive Tracking". Add Code to Pages: "All pages — Load code once". Place Code in: "Body — end".',
       },
       { do: 'Click "Apply".' },
       { do: "Publish your site (top-right Publish button) for the script to go live." },
+      {
+        do: "View the page source of your live site (right-click → View Page Source) and confirm both <script> tags appear.",
+        hint: "If they're missing, you most likely saved in the editor but didn't Publish — Wix only applies Custom Code changes after a Publish.",
+      },
+      {
+        do: "Load any page through a Gold Hive partner link (?gh_partner=…) and confirm the gh_partner_id cookie appears in DevTools → Application → Cookies.",
+      },
     ],
     scriptNote:
       "Custom Code requires a paid Wix Premium plan and a connected custom domain. Free Wix sites cannot install third-party scripts.",
@@ -204,8 +228,21 @@ export const PLATFORM_SETUP: Record<Exclude<Platform, "FareHarbor" | "Other">, P
       { do: 'In the left sidebar click "Sites".' },
       { do: 'Click "Tracking Code" (some accounts show it under Settings → Business Profile).' },
       { do: 'Scroll to the "Footer Tracking Code" / "Body End" box.' },
-      { do: "Paste the entire <script> tag." },
-      { do: 'Click "Save".' },
+      {
+        do: "Paste the entire snippet — BOTH <script> tags (the window.GoldHive.config block first, then the tracking.js line).",
+        hint: "Copy the whole gold box above in one go and the order is preserved automatically.",
+      },
+      {
+        do: 'Click "Save".',
+        hint: "GHL caches aggressively — after saving, republish each Funnel/Website that uses the code (Sites → Funnels → ⋯ → Publish) or the change won't go live.",
+      },
+      {
+        do: "View the page source of your live site (right-click → View Page Source) and confirm both <script> tags appear.",
+        hint: "This separates two distinct failure modes: tags missing from the live site vs. tags present but not firing.",
+      },
+      {
+        do: "Load any page through a Gold Hive partner link (?gh_partner=…) and confirm the gh_partner_id cookie appears in DevTools → Application → Cookies.",
+      },
     ],
     scriptNote:
       "If the site uses a GHL Funnel, also paste the script into Funnel → Settings → Tracking Code → Footer.",
@@ -220,8 +257,18 @@ export const PLATFORM_SETUP: Record<Exclude<Platform, "FareHarbor" | "Other">, P
       { do: 'Top menu: click "Configuration" → "Settings".' },
       { do: 'Scroll to "Website Info" and enable "Custom Code" if it is not already on.' },
       { do: 'Now go back to the live site and click "Edit" → "Customize" → "Theme Options" → "Custom Code".' },
-      { do: 'Paste the <script> tag into the "Footer" / "Before </body>" slot.' },
+      {
+        do: 'Paste the entire snippet — BOTH <script> tags (the window.GoldHive.config block first, then the tracking.js line) — into the "Footer" / "Before </body>" slot.',
+        hint: "Copy the whole gold box above in one go and the order is preserved automatically.",
+      },
       { do: 'Click "Save".' },
+      {
+        do: "View the page source of your live site (right-click → View Page Source) and confirm both <script> tags appear.",
+        hint: "This separates two distinct failure modes: tags missing from the live site vs. tags present but not firing.",
+      },
+      {
+        do: "Load any page through a Gold Hive partner link (?gh_partner=…) and confirm the gh_partner_id cookie appears in DevTools → Application → Cookies.",
+      },
     ],
     scriptNote:
       "On Odoo Online (SaaS) Custom Code is restricted on the lowest plan. If unavailable, paste the script via Website → Pages → Manage Pages → SEO/Properties → Footer Code instead.",
@@ -230,25 +277,48 @@ export const PLATFORM_SETUP: Record<Exclude<Platform, "FareHarbor" | "Other">, P
   // -------------------------------- Custom / Coded Website (developer)
   Custom: {
     scriptLocation:
-      "Your app's GLOBAL HTML shell — the <head> (or just before </body>) of the layout that wraps every page: index.html, app/layout.tsx, src/layouts/Base.astro, etc.",
+      "Your app's GLOBAL HTML shell — the <head> of the layout that wraps every page: index.html, app/layout.tsx, src/layouts/Base.astro, etc.",
     scriptSteps: [
       {
-        do: "Open your project in your IDE (VS Code, Cursor, …) — you'll paste the snippet into the one file that renders on every page.",
-        hint: "Using an AI editor like Cursor? Paste the personalized snippet into chat and ask it to add both <script> tags to your global layout's <head> — it knows your stack.",
+        do: "Recommended: paste both tags via your AI editor (Cursor, Copilot, etc.) — it knows your framework and will use the right inline-script syntax automatically.",
+        hint: "Copy this prompt, paste it into chat along with your snippet:",
+        copyText:
+          'Add both of these <script> tags to my global layout\'s <head>, keeping the config block before tracking.js. Use whatever inline-script syntax my framework requires (e.g. is:inline for Astro, next/script with beforeInteractive for Next.js).',
       },
       {
-        do: "Find the GLOBAL HTML shell — the single template/component that wraps every page (not an individual page or route).",
-        hint: "Plain HTML → index.html. Next.js → app/layout.tsx (App Router) or pages/_document.tsx (Pages Router). Astro → src/layouts/*.astro (your base layout). Vite/React → index.html.",
+        do: "Find your GLOBAL HTML shell — the single file whose <head> renders on every page.",
+        hint: "Can't find it? Search your project for </head> (Ctrl/Cmd+Shift+F), excluding node_modules and build folders like dist, build, .next. The file that contains it is your global shell. If your only hits are in a build or output folder, find the template that generates them instead.",
+        bullets: [
+          "Plain HTML / Vite → index.html",
+          "Next.js App Router → app/layout.tsx",
+          "Next.js Pages Router → pages/_document.tsx",
+          "Astro → src/layouts/Base.astro (or your base layout)",
+          "SvelteKit → src/app.html",
+          "Nuxt → nuxt.config.ts (app.head.script array)",
+          "WordPress → header.php",
+          "Rails → app/views/layouts/application.html.erb",
+          "Django → templates/base.html",
+        ],
       },
       {
-        do: "Paste BOTH <script> tags into <head> (or immediately before </body>). The inline window.GoldHive.config block MUST come FIRST, then the <script src=\"…/tracking.js\"> line.",
+        do: "Paste BOTH <script> tags into <head>. The inline window.GoldHive.config block MUST come FIRST, then the <script src=\"…/tracking.js\"> line.",
         hint: "Order is load-bearing: if tracking.js runs before the config block, window.GoldHive.config is null and nothing is ever sent.",
+        bullets: [
+          "Astro — add is:inline to both tags or Astro will bundle/hoist them: <script is:inline>",
+          "Next.js App Router — use <Script strategy=\"beforeInteractive\"> from next/script (or dangerouslySetInnerHTML); a raw <script> in layout.tsx gets stripped by React",
+          "Nuxt — add via app.head.script in nuxt.config.ts; array order preserves the config-first rule",
+          "SvelteKit — paste into src/app.html, not a .svelte layout component",
+        ],
       },
       {
-        do: "Double-check it lives in the GLOBAL layout/shell, not a single page component — it must load on every page so the gh_partner_id cookie persists across the whole site.",
+        do: "Double-check the snippet is in the GLOBAL shell, not a single-page component — it must load on every page so the gh_partner_id cookie persists across the whole site.",
       },
       {
-        do: "Build / deploy, then load any page through a Gold Hive partner link (?gh_partner=…) and confirm the gh_partner_id cookie appears in DevTools → Application → Cookies.",
+        do: "Build and deploy. View the page source of any published page (right-click → View Page Source) and confirm both <script> tags appear in the rendered HTML.",
+        hint: "This separates two distinct failure modes: tags missing from production HTML vs. tags present but not firing.",
+      },
+      {
+        do: "Load any page through a Gold Hive partner link (?gh_partner=…) and confirm the gh_partner_id cookie appears in DevTools → Application → Cookies.",
         hint: "In the console, window.GoldHive.config should return your vendorId — that confirms the config block loaded before tracking.js.",
       },
     ],
@@ -262,12 +332,26 @@ export const OTHER_PLATFORM_SETUP: PlatformSetup = {
   scriptSteps: [
     {
       do: "Open the file or settings panel that controls your site's global footer.",
-      hint: "Common locations: footer.html, base.html, _layouts/default.html, or a 'Custom Code / Footer Scripts' settings field.",
+      hint: "Where it lives on common platforms:",
+      bullets: [
+        "WordPress → Appearance → Theme File Editor → footer.php (before </body>), or a header/footer-scripts plugin",
+        "Webflow → Project Settings → Custom Code → Footer Code",
+        "Framer → Site Settings → General → Custom Code → End of <body> tag",
+        "Shopify → Online Store → Themes → Edit Code → theme.liquid (before </body>)",
+        "Showit → Site Settings → Advanced → Custom Head/Body HTML",
+        "GoDaddy → Edit Site → Settings → Site-wide Code",
+        "Static sites → footer.html, base.html, or _layouts/default.html in your repo",
+      ],
     },
     {
-      do: "Paste the entire <script> tag immediately BEFORE the closing </body> tag.",
+      do: "Paste the entire snippet — BOTH <script> tags (the window.GoldHive.config block first, then the tracking.js line) — immediately BEFORE the closing </body> tag.",
+      hint: "Copy the whole gold box above in one go and the order is preserved automatically.",
     },
     { do: "Save the file and deploy / publish the change." },
+    {
+      do: "View the page source of your live site (right-click → View Page Source) and confirm both <script> tags appear.",
+      hint: "This separates two distinct failure modes: tags missing from the live site vs. tags present but not firing.",
+    },
     {
       do: "Load any page on your site with ?gh_partner=YOUR_VENDOR_ID-style test link, open DevTools → Application → Cookies, and confirm the gh_partner_id cookie appears.",
       hint: "The script only sends data when that cookie is present, so this confirms it's live.",

@@ -1,2 +1,10 @@
 
 .wrangler/
+node_modules/
+dist/
+.DS_Store
+
+# Environment files — never commit secrets
+.env
+.env.*
+*.local

@@ -2,10 +2,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { createClient } from "@supabase/supabase-js";
 import { tasks } from "@trigger.dev/sdk/v3";
 import { z } from "zod";
-import { sendEmail } from "@/lib/email";
-
-const PORTAL_URL =
-  process.env.VENDOR_PORTAL_URL || "https://portal.goldhive.org";
 
 /**
  * Server-side onboarding actions (service role). Uses its own *untyped*
@@ -37,7 +33,8 @@ function generatePassword(): string {
 
 // Step 1 registration: create the auth user + vendors row up front so the
 // wizard has a real vendor_id for the personalized snippet and the verify
-// button. No email is sent here — that happens at finalize (wizard finish).
+// button. No email is sent during onboarding — the welcome/login email goes
+// out when a Gold Hive admin approves the account in the partner portal.
 const registerVendorInput = z.object({
   email: z.string().trim().email().max(320),
   // The business / vendor name shown in the dashboard + partner directory.
@@ -49,8 +46,8 @@ const registerVendorInput = z.object({
   website: z.string().trim().max(500).optional(),
 });
 
-// Wizard finish: flip the vendor's platform, send the (now personalized)
-// credential email, and forward any pasted booking form to the mapping job.
+// Wizard finish: flip the vendor's platform and forward any pasted booking
+// form to the mapping job. The login email is sent at admin approval, not here.
 const finalizeVendorInput = z.object({
   vendor_id: z.string().uuid(),
   email: z.string().trim().email().max(320),
@@ -70,30 +67,8 @@ export type RegisterVendorResult =
     };
 
 export type FinalizeVendorResult =
-  | { ok: true; emailed: boolean; mappingTriggered: boolean }
+  | { ok: true; mappingTriggered: boolean }
   | { ok: false; error: "finalize_failed"; message: string };
-
-function credentialEmailHtml(
-  name: string,
-  loginLink: string,
-  email: string,
-): string {
-  const safeName = name
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-  return `<!doctype html>
-<html>
-  <body style="font-family: Arial, Helvetica, sans-serif; color:#1a1a1a;">
-    <p>Hi ${safeName},</p>
-    <p>Your Gold Hive Partner Dashboard is ready. Your account email is <strong>${email}</strong>.</p>
-    <p style="margin:24px 0;">
-      <a href="${loginLink}" style="display:inline-block; padding:14px 28px; background:#C9973A; color:#000; font-weight:bold; text-decoration:none; border-radius:8px;">Log in to your dashboard</a>
-    </p>
-    <p style="font-size:13px; color:#666;">This one-time sign-in link logs you straight in (no password needed) and expires shortly. You can always reach your portal at <a href="${PORTAL_URL}">${PORTAL_URL}</a>.</p>
-  </body>
-</html>`;
-}
 
 export type RegisterVendorData = z.infer<typeof registerVendorInput>;
 export type FinalizeVendorData = z.infer<typeof finalizeVendorInput>;
@@ -204,6 +179,9 @@ export async function registerVendorCore(
       email,
       email_confirm: true,
       password: generatePassword(),
+      // First-login force-set: the portal redirects to /set-password until the
+      // vendor replaces the generated password with their own.
+      user_metadata: { must_set_password: true },
     });
   if (createErr || !created?.user) {
     const msg = createErr?.message ?? "Failed to create account";
@@ -246,17 +224,19 @@ export async function registerVendorCore(
 }
 
 /**
- * Wizard finish (service role): set the chosen platform on the vendor, send the
- * credential email (a one-time magic link, addressed to the contact person),
- * and forward any pasted booking form to the normalize-vendor-form job. The
- * email and mapping steps are non-fatal — the vendor already exists.
+ * Wizard finish (service role): set the chosen platform on the vendor and
+ * forward any pasted booking form to the normalize-vendor-form job. The
+ * mapping step is non-fatal — the vendor already exists.
+ *
+ * NOTE: finalize no longer sends the credential email. Approval now gates the
+ * login email — a Gold Hive admin approving the signup in the partner portal
+ * (Approvals page) sends the "Your Gold Hive Partner Dashboard is ready"
+ * magic-link email from there.
  */
 export async function finalizeVendorCore(
   data: FinalizeVendorData,
 ): Promise<FinalizeVendorResult> {
   const supabase = admin();
-  const email = data.email.toLowerCase();
-  const greetName = data.contact_name?.trim() || "there";
 
   if (data.platform) {
     const { error: updateErr } = await supabase
@@ -270,30 +250,6 @@ export async function finalizeVendorCore(
         message: updateErr.message,
       };
     }
-  }
-
-  // Task 4: credential email — a one-time magic link into the portal. Non-fatal
-  // on failure: the vendor exists and the link can be re-sent.
-  let emailed = false;
-  try {
-    const { data: linkData, error: linkErr } =
-      await supabase.auth.admin.generateLink({
-        type: "magiclink",
-        email,
-        options: { redirectTo: `${PORTAL_URL}/dashboard/vendor` },
-      });
-    if (linkErr) throw linkErr;
-    const actionLink = linkData?.properties?.action_link;
-    if (actionLink) {
-      await sendEmail({
-        to: email,
-        subject: "Your Gold Hive Partner Dashboard is ready",
-        html: credentialEmailHtml(greetName, actionLink, email),
-      });
-      emailed = true;
-    }
-  } catch (err) {
-    console.error("Credential email failed", err);
   }
 
   // Task 8: forward the pasted booking form to the normalize-vendor-form job
@@ -313,7 +269,7 @@ export async function finalizeVendorCore(
     }
   }
 
-  return { ok: true, emailed, mappingTriggered };
+  return { ok: true, mappingTriggered };
 }
 
 export const registerVendor = createServerFn({ method: "POST" })

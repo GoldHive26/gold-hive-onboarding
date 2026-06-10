@@ -1,7 +1,7 @@
-import { type ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { BadgeCheck, Sparkles, Check, Loader2 } from "lucide-react";
+import { BadgeCheck, Sparkles, Check, Loader2, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CodeBlock } from "./CodeBlock";
 import { buildTrackingSnippet } from "@/lib/tracking-snippet";
@@ -260,6 +260,34 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+// Small inline copy button for the AI-editor prompt text.
+function InlineCopy({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <div className="mt-1.5 flex items-start gap-2 rounded-lg border border-primary/20 bg-secondary/30 px-3 py-2">
+      <p className="flex-1 font-mono text-xs leading-relaxed text-foreground/80">
+        {text}
+      </p>
+      <button
+        onClick={handleCopy}
+        className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:text-primary"
+        aria-label="Copy prompt"
+      >
+        {copied ? (
+          <Check className="h-3.5 w-3.5 text-emerald-500" />
+        ) : (
+          <Copy className="h-3.5 w-3.5" />
+        )}
+      </button>
+    </div>
+  );
+}
+
 // Clean numbered list — plain text, no borders, no backgrounds, no color blocks.
 function PlainSteps({ steps, note }: { steps: ClickStep[]; note?: string }) {
   return (
@@ -270,7 +298,7 @@ function PlainSteps({ steps, note }: { steps: ClickStep[]; note?: string }) {
             <span className="shrink-0 font-mono text-sm font-semibold tabular-nums text-primary">
               {i + 1}.
             </span>
-            <div className="min-w-0">
+            <div className="min-w-0 w-full">
               <p className="text-[0.95rem] leading-relaxed text-foreground">
                 {s.do}
               </p>
@@ -278,6 +306,19 @@ function PlainSteps({ steps, note }: { steps: ClickStep[]; note?: string }) {
                 <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">
                   {s.hint}
                 </p>
+              )}
+              {s.copyText && <InlineCopy text={s.copyText} />}
+              {s.bullets && s.bullets.length > 0 && (
+                <ul className="mt-1 space-y-0.5 pl-3">
+                  {s.bullets.map((b, j) => (
+                    <li
+                      key={j}
+                      className="text-sm leading-relaxed text-muted-foreground before:mr-1.5 before:content-['·']"
+                    >
+                      {b}
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
           </li>
