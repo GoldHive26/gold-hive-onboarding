@@ -106,8 +106,10 @@ async function findUserIdByEmail(
 
 /**
  * Resume an already-registered email: return its existing vendor so the wizard
- * picks up where it left off (no dead-end on duplicate). If the auth user exists
- * but its vendor row is missing (a partial earlier failure), repair it.
+ * picks up where it left off (no dead-end on duplicate). Also ensures the
+ * `profiles` row exists — the DB trigger only fires on NEW auth user INSERTs, so
+ * a recycled email (auth user restored after profile was deleted) would otherwise
+ * be invisible on the admin Approvals page (which lists profiles without roles).
  */
 async function resumeExistingVendor(
   supabase: ReturnType<typeof admin>,
@@ -122,13 +124,17 @@ async function resumeExistingVendor(
     .order("created_at", { ascending: false })
     .limit(1);
   const existing = rows?.[0];
+
   if (existing?.id) {
-    return {
-      ok: true,
-      vendor_id: existing.id as string,
-      user_id: (existing.user_id as string) ?? "",
-      resumed: true,
-    };
+    const userId = (existing.user_id as string) ?? "";
+    // Ensure the profiles row exists so this signup appears on the Approvals page.
+    // ignoreDuplicates = true means we only insert if the row is absent.
+    if (userId) {
+      await supabase
+        .from("profiles")
+        .upsert({ id: userId, email }, { onConflict: "id", ignoreDuplicates: true });
+    }
+    return { ok: true, vendor_id: existing.id as string, user_id: userId, resumed: true };
   }
 
   // Auth user exists but no vendor row — recover by creating one.
@@ -140,6 +146,12 @@ async function resumeExistingVendor(
       message: "That email is registered but we couldn't load its account.",
     };
   }
+
+  // Ensure profiles row exists before inserting the vendor row.
+  await supabase
+    .from("profiles")
+    .upsert({ id: userId, email }, { onConflict: "id", ignoreDuplicates: true });
+
   const { data: vendorRow, error: vendorErr } = await supabase
     .from("vendors")
     .insert({
